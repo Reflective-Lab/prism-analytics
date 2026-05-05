@@ -1,0 +1,49 @@
+[package]
+name = "prism"
+version.workspace = true
+publish = false
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "Analytics and ML pipeline for Converge agents. Implements feature extraction, inference, training, and monitoring suggestors."
+
+[dependencies]
+polars.workspace = true
+calamine = { workspace = true, optional = true }
+burn.workspace = true
+ndarray.workspace = true
+anyhow.workspace = true
+async-trait.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+proptest.workspace = true
+rand.workspace = true
+reqwest.workspace = true
+bincode.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+
+# Converge contracts
+converge-pack.workspace = true
+
+# Converge platform dependencies
+converge-domain.workspace = true
+converge-optimization.workspace = true
+converge-provider.workspace = true
+
+# Object storage (optional)
+converge-storage = { workspace = true, optional = true, features = ["local"] }
+
+[dev-dependencies]
+converge-kernel.workspace = true
+tempfile.workspace = true
+trybuild.workspace = true
+
+[features]
+default = []
+storage = ["dep:converge-storage"]
+excel = ["dep:calamine"]
+
+[lints]
+workspace = true
