@@ -395,7 +395,7 @@ async fn anomaly_detection_constant_data_produces_no_anomalies() {
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
     // Zero std_dev → no anomalies detected
-    assert!(strategies[0].content.contains("\"anomaly_count\":0"));
+    assert!(strategies[0].content().contains("\"anomaly_count\":0"));
 }
 
 // ── Single-element edge cases ──
@@ -416,7 +416,7 @@ async fn descriptive_stats_single_value() {
     );
     let result = engine.run(ctx).await.expect("should converge");
     assert!(result.converged);
-    let content = &result.context.get(ContextKey::Strategies)[0].content;
+    let content = result.context.get(ContextKey::Strategies)[0].content();
     // Single value: mean = median = 42, std = 0
     assert!(content.contains("42"));
     assert!(content.contains("\"std_dev\":0"));

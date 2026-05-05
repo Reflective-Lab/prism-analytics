@@ -43,7 +43,7 @@ async fn anomaly_detection_finds_outliers() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("anomalies"));
     assert!(content.contains("50.0") || content.contains("100.0"));
 }
@@ -65,7 +65,7 @@ async fn segmentation_clusters_distinct_groups() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("assignments"));
     assert!(content.contains("centroids"));
 }
@@ -89,7 +89,7 @@ async fn ranking_orders_by_composite_score() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     // "best" should appear before "worst" in ranked output
     let best_pos = content.find("best").expect("best should be in output");
     let worst_pos = content.find("worst").expect("worst should be in output");
@@ -111,7 +111,7 @@ async fn forecasting_produces_predictions() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("predictions"));
     assert!(content.contains("\"step\":1"));
     assert!(content.contains("\"step\":2"));
@@ -135,7 +135,7 @@ async fn classification_assigns_labels() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("spam"));
     assert!(content.contains("not-spam"));
     assert!(content.contains("probability"));
@@ -156,7 +156,7 @@ async fn regression_predicts_values() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     // record [1.0] * 10.0 + 5.0 = 15.0
     assert!(content.contains("15"));
     // record [4.0] * 10.0 + 5.0 = 45.0
@@ -182,7 +182,7 @@ async fn similarity_finds_nearest_pairs() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("pairs"));
     // a and b should be most similar (both point roughly in same direction)
     let a_b = content
@@ -206,7 +206,7 @@ async fn trend_detection_identifies_segments() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("segments"));
     assert!(content.contains("rising") || content.contains("falling"));
 }
@@ -225,7 +225,7 @@ async fn descriptive_stats_computes_summary() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = &strategies[0].content;
+    let content = strategies[0].content();
     assert!(content.contains("mean"));
     assert!(content.contains("median"));
     assert!(content.contains("std_dev"));
