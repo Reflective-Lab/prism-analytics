@@ -1,12 +1,12 @@
 //! Negative tests: analytics packs reject invalid input and handle edge cases.
 
+use converge_kernel::{Budget, ContextKey, ContextState, Engine};
+use converge_pack::Pack;
+use converge_pack::PackSuggestor;
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
     RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
 };
-use converge_kernel::{Budget, ContextKey, ContextState, Engine};
-use converge_pack::Pack;
-use converge_pack::PackSuggestor;
 
 fn budget() -> Budget {
     Budget {

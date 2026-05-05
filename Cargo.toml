@@ -12,9 +12,7 @@ repository = "https://github.com/Reflective-Lab/prism"
 [workspace.dependencies]
 # Converge platform contracts
 converge-pack = "3.7.6"
-converge-domain = "3.7.6"
 converge-optimization = "3.7.6"
-converge-provider = "3.7.6"
 converge-storage = { version = "3.7.6", default-features = false }
 converge-kernel = "3.7.6"
 
@@ -71,8 +69,6 @@ codegen-units = 1
 # Track unreleased Converge platform head until each crate ships to crates.io.
 [patch.crates-io]
 converge-pack = { path = "../../work/converge/crates/pack" }
-converge-domain = { path = "../../work/converge/crates/domain" }
 converge-optimization = { path = "../../work/converge/crates/optimization" }
-converge-provider = { path = "../../work/converge/crates/provider" }
 converge-storage = { path = "../../work/converge/crates/storage" }
 converge-kernel = { path = "../../work/converge/crates/kernel" }

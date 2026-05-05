@@ -1,11 +1,11 @@
 //! Integration tests: each analytics pack as a Suggestor in the convergence loop.
 
+use converge_kernel::{Budget, ContextKey, ContextState, ConvergeResult, Engine};
+use converge_pack::PackSuggestor;
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
     RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
 };
-use converge_kernel::{Budget, ContextKey, ContextState, ConvergeResult, Engine};
-use converge_pack::PackSuggestor;
 
 fn budget() -> Budget {
     Budget {

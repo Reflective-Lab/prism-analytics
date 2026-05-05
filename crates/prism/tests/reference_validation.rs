@@ -3,6 +3,7 @@
 //! Each test uses a hand-computable input where the correct output can be
 //! verified with a pocket calculator. If converge disagrees, the test fails.
 
+use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
 use prism::packs::descriptive_stats::{DescriptiveStatsInput, DescriptiveStatsSolver};
@@ -13,7 +14,6 @@ use prism::packs::segmentation::{KMeansSolver, SegmentationInput};
 use prism::packs::similarity::{
     DistanceMetric, PairwiseSimilaritySolver, SimilarityInput, SimilarityItem,
 };
-use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
 
 fn spec() -> ProblemSpec {
     ProblemSpec::builder("ref-test", "test")

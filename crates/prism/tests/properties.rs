@@ -1,12 +1,12 @@
 //! Property tests: analytics pack invariants hold across randomized inputs.
 
+use converge_kernel::{Budget, ContextKey, ContextState, Engine};
+use converge_pack::Pack;
+use converge_pack::PackSuggestor;
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
     RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
 };
-use converge_kernel::{Budget, ContextKey, ContextState, Engine};
-use converge_pack::Pack;
-use converge_pack::PackSuggestor;
 use proptest::prelude::*;
 
 fn rt() -> tokio::runtime::Runtime {
