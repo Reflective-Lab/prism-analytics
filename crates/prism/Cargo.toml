@@ -1,5 +1,5 @@
 [package]
-name = "prism"
+name = "converge-prism-analytics"
 version.workspace = true
 publish = false
 edition.workspace = true
@@ -7,6 +7,10 @@ rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 description = "Analytics and ML pipeline for Converge agents. Implements feature extraction, inference, training, and monitoring suggestors."
+
+[lib]
+name = "prism"
+path = "src/lib.rs"
 
 [dependencies]
 polars.workspace = true

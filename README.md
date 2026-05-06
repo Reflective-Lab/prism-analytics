@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/ci.yml)
 [![Security](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/security.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/security.yml)
+[![Crates.io](https://img.shields.io/crates/v/converge-prism-analytics.svg)](https://crates.io/crates/converge-prism-analytics)
+[![docs.rs](https://docs.rs/converge-prism-analytics/badge.svg)](https://docs.rs/converge-prism-analytics)
 [![dependency status](https://deps.rs/repo/github/Reflective-Lab/prism-analytics/status.svg)](https://deps.rs/repo/github/Reflective-Lab/prism-analytics)
 ![MSRV](https://img.shields.io/badge/MSRV-1.94.0-blue)
 <img alt="gitleaks badge" src="https://img.shields.io/badge/protected%20by-gitleaks-blue">
@@ -13,6 +15,8 @@ Analytics and ML suggestors for Converge formations.
 training, inference, model registry, monitoring, and deployment-decision
 suggestors outside the Converge foundation while using Converge contracts for
 in-loop behavior.
+
+Cargo package: `converge-prism-analytics`. Rust library name remains `prism`.
 
 ## Why It Exists
 
