@@ -6,7 +6,7 @@ source: mixed
 
 ```bash
 git clone https://github.com/Reflective-Lab/prism-analytics.git
-cd prism
+cd prism-analytics
 just                # check + lint + test
 ```
 
