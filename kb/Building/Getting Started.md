@@ -5,7 +5,7 @@ source: mixed
 # Getting Started
 
 ```bash
-git clone https://github.com/Reflective-Lab/prism.git
+git clone https://github.com/Reflective-Lab/prism-analytics.git
 cd prism
 just                # check + lint + test
 ```

@@ -1,8 +1,8 @@
 # prism
 
-[![CI](https://github.com/Reflective-Lab/prism/actions/workflows/ci.yml/badge.svg)](https://github.com/Reflective-Lab/prism/actions/workflows/ci.yml)
-[![Security](https://github.com/Reflective-Lab/prism/actions/workflows/security.yml/badge.svg)](https://github.com/Reflective-Lab/prism/actions/workflows/security.yml)
-[![dependency status](https://deps.rs/repo/github/Reflective-Lab/prism/status.svg)](https://deps.rs/repo/github/Reflective-Lab/prism)
+[![CI](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/ci.yml)
+[![Security](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/security.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/security.yml)
+[![dependency status](https://deps.rs/repo/github/Reflective-Lab/prism-analytics/status.svg)](https://deps.rs/repo/github/Reflective-Lab/prism-analytics)
 ![MSRV](https://img.shields.io/badge/MSRV-1.94.0-blue)
 <img alt="gitleaks badge" src="https://img.shields.io/badge/protected%20by-gitleaks-blue">
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
