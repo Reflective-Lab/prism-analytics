@@ -89,8 +89,7 @@ just lint
 just doc
 ```
 
-While Converge platform crates are unreleased, this workspace patches local
-Converge crates at `../../work/converge/crates/...`.
+Converge platform dependencies resolve from crates.io.
 
 ## Project Files
 

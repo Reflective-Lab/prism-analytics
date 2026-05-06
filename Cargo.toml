@@ -11,10 +11,10 @@ repository = "https://github.com/Reflective-Lab/prism"
 
 [workspace.dependencies]
 # Converge platform contracts
-converge-pack = "3.7.6"
-converge-optimization = "3.7.6"
-converge-storage = { version = "3.7.6", default-features = false }
-converge-kernel = "3.7.6"
+converge-pack = "3.8.1"
+converge-optimization = "3.8.1"
+converge-storage = { version = "3.8.1", default-features = false }
+converge-kernel = "3.8.1"
 
 # ML / data
 polars = { version = "0.51.0", features = ["csv", "lazy", "log", "ndarray", "parquet", "rows"] }
@@ -65,10 +65,3 @@ wildcard_imports = "allow"
 opt-level = 3
 lto = true
 codegen-units = 1
-
-# Track unreleased Converge platform head until each crate ships to crates.io.
-[patch.crates-io]
-converge-pack = { path = "../../work/converge/crates/pack" }
-converge-optimization = { path = "../../work/converge/crates/optimization" }
-converge-storage = { path = "../../work/converge/crates/storage" }
-converge-kernel = { path = "../../work/converge/crates/kernel" }

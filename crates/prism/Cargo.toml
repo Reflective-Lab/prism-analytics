@@ -31,7 +31,7 @@ converge-pack.workspace = true
 converge-optimization.workspace = true
 
 # Object storage (optional)
-converge-storage = { workspace = true, optional = true, features = ["local"] }
+converge-storage = { workspace = true, optional = true }
 
 [dev-dependencies]
 converge-kernel.workspace = true
