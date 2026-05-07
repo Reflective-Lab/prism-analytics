@@ -28,9 +28,12 @@ jobs:
         with:
           tool: cargo-llvm-cov
       - name: Generate coverage
+        # Excludes test/bench/example dirs plus binary entry points
+        # (main.rs, suggestor.rs) and gRPC transport stubs (bin/, grpc/),
+        # which are exercised by integration tests, not unit tests.
         run: |
           cargo llvm-cov --workspace --lib --tests \
-            --ignore-filename-regex '(^|/)(tests|benches|examples)/' \
+            --ignore-filename-regex '(^|/)(tests|benches|examples)/|(^|/)(main|suggestor)\.rs$|(^|/)bin/|(^|/)grpc/' \
             --json --summary-only --output-path coverage.json
       - name: Extract coverage percentage
         id: cov
