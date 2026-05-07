@@ -53,16 +53,8 @@ impl Pack for RankingPack {
 
         let trace = KernelTraceLink::audit_only(format!("trace-{}", spec.problem_id));
 
-        let max_score = output
-            .ranked
-            .first()
-            .map(|r| r.composite_score)
-            .unwrap_or(0.0);
-        let min_score = output
-            .ranked
-            .last()
-            .map(|r| r.composite_score)
-            .unwrap_or(0.0);
+        let max_score = output.ranked.first().map_or(0.0, |r| r.composite_score);
+        let min_score = output.ranked.last().map_or(0.0, |r| r.composite_score);
         let confidence = (max_score - min_score).clamp(0.3, 0.95);
 
         let plan = ProposedPlan::from_payload(
@@ -86,16 +78,8 @@ impl Pack for RankingPack {
         // Dimension check is already enforced at validation, so always passes here
         results.push(InvariantResult::pass("valid-dimensions"));
 
-        let max_score = output
-            .ranked
-            .first()
-            .map(|r| r.composite_score)
-            .unwrap_or(0.0);
-        let min_score = output
-            .ranked
-            .last()
-            .map(|r| r.composite_score)
-            .unwrap_or(0.0);
+        let max_score = output.ranked.first().map_or(0.0, |r| r.composite_score);
+        let min_score = output.ranked.last().map_or(0.0, |r| r.composite_score);
         if (max_score - min_score) < 0.01 {
             results.push(InvariantResult::fail(
                 "score-separation",

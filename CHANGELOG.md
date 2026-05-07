@@ -6,10 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-05-07
+
 ### Changed
 
 - Cargo package renamed from `prism` to `converge-prism-analytics`; Rust
   library name remains `prism`.
+- Workspace `[lints.clippy]` extends the existing pedantic-allow list with
+  `default_trait_access`, `struct_field_names`, `unreadable_literal`,
+  `manual_let_else`, `items_after_statements`, `return_self_not_must_use`,
+  `ignore_without_reason`, and `float_cmp`. These remain `pedantic` warnings
+  upstream — we simply do not gate the release on stylistic noise.
+- `Justfile`'s `security-audit` recipe now passes the same
+  `--ignore RUSTSEC-*` flags `cargo-deny` already ignores in `deny.toml`,
+  so the local and CI gates agree.
+
+### Fixed
+
+- `cargo clippy --fix` cleanups across `engine`, `ingest`, `model`,
+  `training`, and the analytics packs: `Option::map_or`, `Default` use,
+  collapsed `if let` chains, and `String::new()` over `"".into()`.
+- `tests/compile_fail/*.stderr` snapshots refreshed for current rustc
+  diagnostics (now lists both `CorrectionTarget::Fact` and
+  `OverrideTarget::Fact` in the help text).
+- `deny.toml` extended with `MPL-2.0` / `NCSA` allow entries so the
+  license gate matches the foundation's allowed list.
 
 ## [1.0.0] - 2026-05-05
 

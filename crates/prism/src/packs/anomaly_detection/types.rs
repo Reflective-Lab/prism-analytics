@@ -25,12 +25,12 @@ impl AnomalyDetectionInput {
                 "Threshold must be positive",
             ));
         }
-        if let Some(labels) = &self.labels {
-            if labels.len() != self.values.len() {
-                return Err(converge_pack::GateError::invalid_input(
-                    "Labels length must match values length",
-                ));
-            }
+        if let Some(labels) = &self.labels
+            && labels.len() != self.values.len()
+        {
+            return Err(converge_pack::GateError::invalid_input(
+                "Labels length must match values length",
+            ));
         }
         Ok(())
     }

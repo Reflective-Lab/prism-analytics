@@ -50,12 +50,12 @@ impl SimilarityInput {
                 )));
             }
         }
-        if let Some(top_k) = self.top_k {
-            if top_k == 0 {
-                return Err(converge_pack::GateError::invalid_input(
-                    "top_k must be >= 1",
-                ));
-            }
+        if let Some(top_k) = self.top_k
+            && top_k == 0
+        {
+            return Err(converge_pack::GateError::invalid_input(
+                "top_k must be >= 1",
+            ));
         }
         Ok(())
     }

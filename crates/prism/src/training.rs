@@ -191,7 +191,7 @@ impl DataValidationAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for DataValidationAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "DataValidationAgent"
     }
 
@@ -246,13 +246,12 @@ impl Suggestor for DataValidationAgent {
             };
             missingness.insert(name.clone(), null_ratio);
 
-            if is_numeric_dtype(series.dtype()) {
-                if let Ok((mean, _std, outliers)) =
+            if is_numeric_dtype(series.dtype())
+                && let Ok((mean, _std, outliers)) =
                     compute_numeric_stats(series.as_materialized_series())
-                {
-                    numeric_means.insert(name.clone(), mean);
-                    outlier_counts.insert(name, outliers);
-                }
+            {
+                numeric_means.insert(name.clone(), mean);
+                outlier_counts.insert(name, outliers);
             }
         }
 
@@ -290,7 +289,7 @@ impl FeatureEngineeringAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for FeatureEngineeringAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "FeatureEngineeringAgent"
     }
 
@@ -388,7 +387,7 @@ impl HyperparameterSearchAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for HyperparameterSearchAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "HyperparameterSearchAgent"
     }
 
@@ -472,7 +471,7 @@ impl Suggestor for HyperparameterSearchAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for DatasetAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "DatasetAgent (HuggingFace)"
     }
 
@@ -565,8 +564,8 @@ impl Suggestor for DatasetAgent {
         let infer_df = df.slice((train_rows + val_rows) as i64, infer_rows);
 
         if let Err(err) = write_parquet(&train_df, &train_path)
-            .and_then(|_| write_parquet(&val_df, &val_path))
-            .and_then(|_| write_parquet(&infer_df, &infer_path))
+            .and_then(|()| write_parquet(&val_df, &val_path))
+            .and_then(|()| write_parquet(&infer_df, &infer_path))
         {
             return AgentEffect::with_proposal(proposal(
                 self.name(),
@@ -616,7 +615,7 @@ impl ModelTrainingAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for ModelTrainingAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ModelTrainingAgent (Baseline)"
     }
 
@@ -762,7 +761,7 @@ impl ModelRegistryAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for ModelRegistryAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ModelRegistryAgent"
     }
 
@@ -828,7 +827,7 @@ impl MonitoringAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for MonitoringAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "MonitoringAgent"
     }
 
@@ -886,7 +885,7 @@ impl DeploymentAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for DeploymentAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "DeploymentAgent"
     }
 
@@ -909,9 +908,8 @@ impl Suggestor for DeploymentAgent {
             None => return AgentEffect::empty(),
         };
 
-        let quality_threshold = read_latest_plan_from_ctx(ctx)
-            .map(|plan| plan.quality_threshold)
-            .unwrap_or(0.75);
+        let quality_threshold =
+            read_latest_plan_from_ctx(ctx).map_or(0.75, |plan| plan.quality_threshold);
 
         let (action, retrain, reason) = if report.success_ratio >= quality_threshold {
             ("deploy", false, "meets quality threshold")
@@ -939,7 +937,7 @@ impl Suggestor for DeploymentAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for ModelEvaluationAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "ModelEvaluationAgent (MAE)"
     }
 
@@ -1074,7 +1072,7 @@ impl SampleInferenceAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for SampleInferenceAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "SampleInferenceAgent (Baseline)"
     }
 
@@ -1235,7 +1233,7 @@ fn read_latest_split_from_ctx(ctx: &dyn Context) -> Result<DatasetSplit> {
     let facts = ctx.get(ContextKey::Signals);
     let mut latest: Option<DatasetSplit> = None;
     for fact in facts {
-        if let Ok(split) = serde_json::from_str::<DatasetSplit>(&fact.content()) {
+        if let Ok(split) = serde_json::from_str::<DatasetSplit>(fact.content()) {
             let should_replace = match &latest {
                 Some(current) => split.iteration > current.iteration,
                 None => true,
@@ -1264,7 +1262,7 @@ fn read_latest_model_meta_from_ctx(ctx: &dyn Context) -> Result<ModelMetadata> {
     let facts = ctx.get(ContextKey::Strategies);
     let mut latest: Option<ModelMetadata> = None;
     for fact in facts {
-        if let Ok(meta) = serde_json::from_str::<ModelMetadata>(&fact.content()) {
+        if let Ok(meta) = serde_json::from_str::<ModelMetadata>(fact.content()) {
             let should_replace = match &latest {
                 Some(current) => meta.iteration > current.iteration,
                 None => true,
@@ -1281,7 +1279,7 @@ fn read_latest_plan_from_ctx(ctx: &dyn Context) -> Option<TrainingPlan> {
     let facts = ctx.get(ContextKey::Constraints);
     let mut latest: Option<TrainingPlan> = None;
     for fact in facts {
-        if let Ok(plan) = serde_json::from_str::<TrainingPlan>(&fact.content()) {
+        if let Ok(plan) = serde_json::from_str::<TrainingPlan>(fact.content()) {
             let should_replace = match &latest {
                 Some(current) => plan.iteration > current.iteration,
                 None => true,
@@ -1296,7 +1294,7 @@ fn read_latest_plan_from_ctx(ctx: &dyn Context) -> Option<TrainingPlan> {
 
 fn has_split_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Signals).iter().any(|fact| {
-        serde_json::from_str::<DatasetSplit>(&fact.content())
+        serde_json::from_str::<DatasetSplit>(fact.content())
             .map(|split| split.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1304,7 +1302,7 @@ fn has_split_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
 
 fn has_model_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Strategies).iter().any(|fact| {
-        serde_json::from_str::<ModelMetadata>(&fact.content())
+        serde_json::from_str::<ModelMetadata>(fact.content())
             .map(|meta| meta.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1312,7 +1310,7 @@ fn has_model_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
 
 fn has_evaluation_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Evaluations).iter().any(|fact| {
-        serde_json::from_str::<EvaluationReport>(&fact.content())
+        serde_json::from_str::<EvaluationReport>(fact.content())
             .map(|report| report.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1320,7 +1318,7 @@ fn has_evaluation_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
 
 fn has_inference_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Hypotheses).iter().any(|fact| {
-        serde_json::from_str::<InferenceSample>(&fact.content())
+        serde_json::from_str::<InferenceSample>(fact.content())
             .map(|sample| sample.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1328,7 +1326,7 @@ fn has_inference_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
 
 fn has_data_quality_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Signals).iter().any(|fact| {
-        serde_json::from_str::<DataQualityReport>(&fact.content())
+        serde_json::from_str::<DataQualityReport>(fact.content())
             .map(|report| report.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1336,7 +1334,7 @@ fn has_data_quality_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
 
 fn has_feature_spec_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Constraints).iter().any(|fact| {
-        serde_json::from_str::<FeatureSpec>(&fact.content())
+        serde_json::from_str::<FeatureSpec>(fact.content())
             .map(|spec| spec.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1344,7 +1342,7 @@ fn has_feature_spec_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
 
 fn has_hyperparam_result_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Evaluations).iter().any(|fact| {
-        serde_json::from_str::<HyperparameterSearchResult>(&fact.content())
+        serde_json::from_str::<HyperparameterSearchResult>(fact.content())
             .map(|result| result.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1352,7 +1350,7 @@ fn has_hyperparam_result_for_iteration(ctx: &dyn Context, iteration: usize) -> b
 
 fn has_registry_record_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Strategies).iter().any(|fact| {
-        serde_json::from_str::<ModelRegistryRecord>(&fact.content())
+        serde_json::from_str::<ModelRegistryRecord>(fact.content())
             .map(|record| record.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1360,7 +1358,7 @@ fn has_registry_record_for_iteration(ctx: &dyn Context, iteration: usize) -> boo
 
 fn has_monitoring_report_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Evaluations).iter().any(|fact| {
-        serde_json::from_str::<MonitoringReport>(&fact.content())
+        serde_json::from_str::<MonitoringReport>(fact.content())
             .map(|report| report.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1368,7 +1366,7 @@ fn has_monitoring_report_for_iteration(ctx: &dyn Context, iteration: usize) -> b
 
 fn has_deployment_decision_for_iteration(ctx: &dyn Context, iteration: usize) -> bool {
     ctx.get(ContextKey::Strategies).iter().any(|fact| {
-        serde_json::from_str::<DeploymentDecision>(&fact.content())
+        serde_json::from_str::<DeploymentDecision>(fact.content())
             .map(|decision| decision.iteration == iteration)
             .unwrap_or(false)
     })
@@ -1377,15 +1375,14 @@ fn has_deployment_decision_for_iteration(ctx: &dyn Context, iteration: usize) ->
 fn latest_evaluation_report(ctx: &dyn Context, iteration: usize) -> Option<EvaluationReport> {
     let mut latest: Option<EvaluationReport> = None;
     for fact in ctx.get(ContextKey::Evaluations) {
-        if let Ok(report) = serde_json::from_str::<EvaluationReport>(&fact.content()) {
+        if let Ok(report) = serde_json::from_str::<EvaluationReport>(fact.content()) {
             if iteration > 0 {
                 if report.iteration == iteration {
                     return Some(report);
                 }
             } else if latest
                 .as_ref()
-                .map(|current| report.iteration > current.iteration)
-                .unwrap_or(true)
+                .is_none_or(|current| report.iteration > current.iteration)
             {
                 latest = Some(report);
             }
@@ -1400,15 +1397,13 @@ fn latest_data_quality_before_iteration(
 ) -> Option<DataQualityReport> {
     let mut latest: Option<DataQualityReport> = None;
     for fact in ctx.get(ContextKey::Signals) {
-        if let Ok(report) = serde_json::from_str::<DataQualityReport>(&fact.content()) {
-            if report.iteration < iteration
-                && latest
-                    .as_ref()
-                    .map(|current| report.iteration > current.iteration)
-                    .unwrap_or(true)
-            {
-                latest = Some(report);
-            }
+        if let Ok(report) = serde_json::from_str::<DataQualityReport>(fact.content())
+            && report.iteration < iteration
+            && latest
+                .as_ref()
+                .is_none_or(|current| report.iteration > current.iteration)
+        {
+            latest = Some(report);
         }
     }
     latest
@@ -1591,7 +1586,7 @@ fn is_numeric_dtype(dtype: &DataType) -> bool {
 /// Read the latest FeatureSpec from context for a given iteration
 fn read_feature_spec_from_ctx(ctx: &dyn Context, iteration: usize) -> Option<FeatureSpec> {
     ctx.get(ContextKey::Constraints).iter().find_map(|fact| {
-        serde_json::from_str::<FeatureSpec>(&fact.content())
+        serde_json::from_str::<FeatureSpec>(fact.content())
             .ok()
             .filter(|spec| spec.iteration == iteration)
     })
@@ -1876,42 +1871,42 @@ mod tests {
 
     #[test]
     fn data_validation_agent_default() {
-        let agent = DataValidationAgent::default();
+        let agent = DataValidationAgent;
         let agent2 = DataValidationAgent::new();
         assert_eq!(format!("{:?}", agent), format!("{:?}", agent2));
     }
 
     #[test]
     fn feature_engineering_agent_default() {
-        let agent = FeatureEngineeringAgent::default();
+        let agent = FeatureEngineeringAgent;
         let agent2 = FeatureEngineeringAgent::new();
         assert_eq!(format!("{:?}", agent), format!("{:?}", agent2));
     }
 
     #[test]
     fn model_evaluation_agent_default() {
-        let agent = ModelEvaluationAgent::default();
+        let agent = ModelEvaluationAgent;
         let agent2 = ModelEvaluationAgent::new();
         assert_eq!(format!("{:?}", agent), format!("{:?}", agent2));
     }
 
     #[test]
     fn model_registry_agent_default() {
-        let agent = ModelRegistryAgent::default();
+        let agent = ModelRegistryAgent;
         let agent2 = ModelRegistryAgent::new();
         assert_eq!(format!("{:?}", agent), format!("{:?}", agent2));
     }
 
     #[test]
     fn monitoring_agent_default() {
-        let agent = MonitoringAgent::default();
+        let agent = MonitoringAgent;
         let agent2 = MonitoringAgent::new();
         assert_eq!(format!("{:?}", agent), format!("{:?}", agent2));
     }
 
     #[test]
     fn deployment_agent_default() {
-        let agent = DeploymentAgent::default();
+        let agent = DeploymentAgent;
         let agent2 = DeploymentAgent::new();
         assert_eq!(format!("{:?}", agent), format!("{:?}", agent2));
     }

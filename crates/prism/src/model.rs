@@ -67,7 +67,7 @@ impl InferenceAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for InferenceAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "InferenceAgent (Burn)"
     }
 

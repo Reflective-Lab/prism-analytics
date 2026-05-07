@@ -98,7 +98,7 @@ impl Pack for TrendDetectionPack {
         }
 
         // Estimate series length from last segment end
-        let series_len = output.segments.last().map(|s| s.end + 1).unwrap_or(0);
+        let series_len = output.segments.last().map_or(0, |s| s.end + 1);
         if output.changepoints.len() > series_len / 2 && series_len > 4 {
             results.push(InvariantResult::fail(
                 "excessive-changepoints",

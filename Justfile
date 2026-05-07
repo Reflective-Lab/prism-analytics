@@ -59,9 +59,14 @@ doc:
 doc-open:
     cargo doc --workspace --no-deps --open
 
-# Local release hygiene
+# Local release hygiene.
+# Ignored advisories: keep in sync with deny.toml `[advisories].ignore`.
+# Justifications live there — cargo-audit has no project-local config file.
 security-audit:
-    cargo audit --deny warnings
+    cargo audit --deny warnings \
+        --ignore RUSTSEC-2025-0141 \
+        --ignore RUSTSEC-2024-0436 \
+        --ignore RUSTSEC-2026-0002
     cargo deny check
 
 # Session opener

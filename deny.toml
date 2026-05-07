@@ -6,11 +6,21 @@
 [advisories]
 unmaintained = "workspace"
 yanked = "warn"
-# Ignore-list parity with foundation. Update both in lockstep when foundation
-# changes. Each entry must be justified inline (transitive crate, no fix
-# available, why the path is not in our exposure surface).
+# Each entry must be justified inline (transitive crate, no fix available,
+# why the path is not in our exposure surface). Keep in sync with the
+# `--ignore` flags passed to `cargo audit` in the Justfile `security-audit`
+# recipe — cargo-audit and cargo-deny use separate ignore mechanisms.
 ignore = [
-    # Add advisories here that the foundation also ignores, with justification.
+    # bincode 1.x and 2.x — unmaintained. Transitive via burn (model
+    # serialization). No upstream fix; burn has not migrated.
+    "RUSTSEC-2025-0141",
+    # paste 1.0.15 — unmaintained proc-macro. Transitive via burn (cubecl).
+    # Compile-time only, no runtime exposure.
+    "RUSTSEC-2024-0436",
+    # lru 0.12.5 — unsound `IterMut` (Stacked Borrows). Transitive via
+    # ratatui → burn-train. The unsound API is only reachable inside
+    # ratatui's internal cache; prism does not call it.
+    "RUSTSEC-2026-0002",
 ]
 
 [licenses]
@@ -25,6 +35,8 @@ allow = [
     "Zlib",
     "BSL-1.0",
     "CC0-1.0",
+    "MPL-2.0",
+    "NCSA",
     "Unlicense",
     "CDLA-Permissive-2.0",
 ]

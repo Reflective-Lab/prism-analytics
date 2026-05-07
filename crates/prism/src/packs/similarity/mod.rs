@@ -52,8 +52,8 @@ impl Pack for SimilarityPack {
         let trace = KernelTraceLink::audit_only(format!("trace-{}", spec.problem_id));
 
         let confidence = if output.pairs.len() >= 2 {
-            let max_s = output.pairs.first().map(|p| p.score).unwrap_or(0.0);
-            let min_s = output.pairs.last().map(|p| p.score).unwrap_or(0.0);
+            let max_s = output.pairs.first().map_or(0.0, |p| p.score);
+            let min_s = output.pairs.last().map_or(0.0, |p| p.score);
             (max_s - min_s).clamp(0.3, 0.95)
         } else {
             0.5
@@ -92,8 +92,8 @@ impl Pack for SimilarityPack {
         }
 
         if output.pairs.len() >= 2 {
-            let max_s = output.pairs.first().map(|p| p.score).unwrap_or(0.0);
-            let min_s = output.pairs.last().map(|p| p.score).unwrap_or(0.0);
+            let max_s = output.pairs.first().map_or(0.0, |p| p.score);
+            let min_s = output.pairs.last().map_or(0.0, |p| p.score);
             if (max_s - min_s).abs() < 0.01 {
                 results.push(InvariantResult::fail(
                     "low-discrimination",

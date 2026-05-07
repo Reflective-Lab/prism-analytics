@@ -7,5 +7,6 @@ error[E0432]: unresolved import `converge_pack::Fact`
   |                                              no `Fact` in the root
   |                                              help: a similar name exists in the module (notice the capitalization): `fact`
   |
-  = help: consider importing this variant instead:
+  = help: consider importing one of these variants instead:
+          converge_kernel::CorrectionTarget::Fact
           converge_kernel::OverrideTarget::Fact

@@ -74,8 +74,8 @@ impl WeightedScoringSolver {
             ranked.truncate(top_k);
         }
 
-        let max_score = ranked.first().map(|r| r.composite_score).unwrap_or(0.0);
-        let min_score = ranked.last().map(|r| r.composite_score).unwrap_or(0.0);
+        let max_score = ranked.first().map_or(0.0, |r| r.composite_score);
+        let min_score = ranked.last().map_or(0.0, |r| r.composite_score);
         let confidence = (max_score - min_score).clamp(0.3, 0.95);
 
         let output = RankingOutput {

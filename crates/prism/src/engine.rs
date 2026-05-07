@@ -91,7 +91,7 @@ impl FeatureAgent {
 
 #[async_trait::async_trait]
 impl Suggestor for FeatureAgent {
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "FeatureAgent (Polars)"
     }
 
@@ -166,7 +166,7 @@ fn compute_features_from_df(
         (numeric.remove(0), numeric.remove(0))
     };
 
-    if left.len() == 0 || right.len() == 0 {
+    if left.is_empty() || right.is_empty() {
         return Err(anyhow!("input data is empty"));
     }
 

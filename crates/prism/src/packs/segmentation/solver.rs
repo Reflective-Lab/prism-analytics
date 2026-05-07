@@ -103,6 +103,5 @@ fn nearest_centroid(record: &[f64], centroids: &[Vec<f64>]) -> usize {
         .enumerate()
         .map(|(i, c)| (i, euclidean_distance_sq(record, c)))
         .min_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(i, _)| i)
-        .unwrap_or(0)
+        .map_or(0, |(i, _)| i)
 }

@@ -262,7 +262,7 @@ proptest! {
         let predictions = output["predictions"].as_array().unwrap();
         for p in predictions {
             let prob = p["probability"].as_f64().unwrap();
-            prop_assert!(prob >= 0.0 && prob <= 1.0, "probability {prob} out of [0,1]");
+            prop_assert!((0.0..=1.0).contains(&prob), "probability {prob} out of [0,1]");
         }
     }
 }

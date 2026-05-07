@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/prism"]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 rust-version = "1.94.0"
 license = "MIT"
@@ -60,6 +60,16 @@ uninlined_format_args = "allow"
 needless_pass_by_value = "allow"
 unused_self = "allow"
 wildcard_imports = "allow"
+# Style-only pedantic lints we accept across the workspace.
+default_trait_access = "allow"
+struct_field_names = "allow"
+unreadable_literal = "allow"
+manual_let_else = "allow"
+items_after_statements = "allow"
+return_self_not_must_use = "allow"
+ignore_without_reason = "allow"
+# Reference checks compare exact f64 outputs from deterministic algorithms.
+float_cmp = "allow"
 
 [profile.release]
 opt-level = 3

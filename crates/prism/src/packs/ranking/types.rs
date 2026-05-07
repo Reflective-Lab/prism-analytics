@@ -52,12 +52,12 @@ impl RankingInput {
                 )));
             }
         }
-        if let Some(top_k) = self.top_k {
-            if top_k == 0 {
-                return Err(converge_pack::GateError::invalid_input(
-                    "top_k must be >= 1",
-                ));
-            }
+        if let Some(top_k) = self.top_k
+            && top_k == 0
+        {
+            return Err(converge_pack::GateError::invalid_input(
+                "top_k must be >= 1",
+            ));
         }
         Ok(())
     }
@@ -82,7 +82,7 @@ impl RankingOutput {
         format!(
             "Ranked {} items, top: {}",
             self.total_items,
-            self.ranked.first().map(|r| r.id.as_str()).unwrap_or("none")
+            self.ranked.first().map_or("none", |r| r.id.as_str())
         )
     }
 }
