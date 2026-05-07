@@ -1,7 +1,9 @@
 # prism
 
 [![CI](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/ci.yml)
+[![Coverage](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/coverage.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/coverage.yml)
 [![Security](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/security.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/security.yml)
+[![Stability](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/stability.yml/badge.svg)](https://github.com/Reflective-Lab/prism-analytics/actions/workflows/stability.yml)
 [![Crates.io](https://img.shields.io/crates/v/converge-prism-analytics.svg)](https://crates.io/crates/converge-prism-analytics)
 [![docs.rs](https://docs.rs/converge-prism-analytics/badge.svg)](https://docs.rs/converge-prism-analytics)
 [![dependency status](https://deps.rs/repo/github/Reflective-Lab/prism-analytics/status.svg)](https://deps.rs/repo/github/Reflective-Lab/prism-analytics)
