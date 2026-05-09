@@ -4,8 +4,8 @@ use converge_kernel::{Budget, ContextKey, ContextState, ConvergeResult, Engine};
 use converge_pack::PackSuggestor;
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
-    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
-    TrendDetectionPack,
+    FuzzyInferencePack, NaiveBayesPack, RankingPack, RegressionPack, SegmentationPack,
+    SimilarityPack, TrendDetectionPack,
 };
 use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 
@@ -411,5 +411,43 @@ async fn tsukamoto_inference_produces_crisp_output() {
     let content = strategies[0].content();
     assert!(content.contains("output"));
     assert!(content.contains("quality-to-score"));
+    assert!(content.contains("\"confidence\""));
+}
+
+#[tokio::test]
+async fn naive_bayes_classifies_point() {
+    let result = run_with_input(
+        NaiveBayesPack,
+        serde_json::json!({
+            "classes": [
+                {
+                    "name": "spam",
+                    "prior": 0.4,
+                    "feature_params": [
+                        {"mean": 10.0, "std_dev": 2.0},
+                        {"mean": 5.0, "std_dev": 1.0}
+                    ]
+                },
+                {
+                    "name": "not-spam",
+                    "prior": 0.6,
+                    "feature_params": [
+                        {"mean": 2.0, "std_dev": 1.0},
+                        {"mean": 8.0, "std_dev": 2.0}
+                    ]
+                }
+            ],
+            "features": [9.0, 5.5]
+        }),
+    )
+    .await;
+
+    assert!(result.converged);
+    let strategies = result.context.get(ContextKey::Strategies);
+    assert_eq!(strategies.len(), 1);
+    let content = strategies[0].content();
+    assert!(content.contains("predicted"));
+    assert!(content.contains("spam"));
+    assert!(content.contains("probabilities"));
     assert!(content.contains("\"confidence\""));
 }

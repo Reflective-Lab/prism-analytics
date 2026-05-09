@@ -11,6 +11,7 @@ use prism::fuzzy::{
     weighted_average,
 };
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
+use prism::packs::naive_bayes::{ClassDef, GaussianNaiveBayes, GaussianParams, NaiveBayesInput};
 use prism::packs::trend_detection::{MovingAverageTrendSolver, TrendDetectionInput, TrendDirection};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
 use prism::packs::descriptive_stats::{DescriptiveStatsInput, DescriptiveStatsSolver};
@@ -1378,4 +1379,128 @@ fn trend_rise_then_fall_hand_computed() {
     assert_eq!(output.changepoints.len(), 1);
     assert_eq!(output.changepoints[0].index, 3);
     assert!((output.changepoints[0].magnitude - 20.0).abs() < 1e-9);
+}
+
+// ── Gaussian Naive Bayes ─────────────────────────────────────────────────────
+// Formula: log P(C|x) ∝ log P(C) + Σ log N(x_i; μ_{C,i}, σ_{C,i})
+//   log N(x; μ, σ) = -0.5·ln(2πσ²) - (x-μ)²/(2σ²)
+// Posteriors via softmax over log scores.
+
+#[test]
+fn naive_bayes_two_class_hand_computed() {
+    // Class A: μ=0, σ=1 for both features; prior=0.5
+    // Class B: μ=3, σ=1 for both features; prior=0.5
+    // Point: x=[1.0, 1.0]
+    //
+    // log N(1; 0, 1) = -0.5·ln(2π) - 0.5 ≈ -0.9189 - 0.5 = -1.4189
+    // log N(1; 3, 1) = -0.5·ln(2π) - (1-3)²/2 = -0.9189 - 2.0 = -2.9189
+    //
+    // log score A = ln(0.5) + 2×(-1.4189) = -0.6931 - 2.8378 = -3.5309
+    // log score B = ln(0.5) + 2×(-2.9189) = -0.6931 - 5.8378 = -6.5309
+    //
+    // Softmax (shift by max = -3.5309):
+    //   exp(0) = 1.0
+    //   exp(-3.0) ≈ 0.049787
+    //   sum ≈ 1.049787
+    //   P(A) ≈ 1.0 / 1.049787 ≈ 0.95257
+    //   P(B) ≈ 0.049787 / 1.049787 ≈ 0.04743
+    //
+    // Predicted: A, confidence ≈ 0.9526
+    let input = NaiveBayesInput {
+        classes: vec![
+            ClassDef {
+                name: "A".into(),
+                prior: 0.5,
+                feature_params: vec![
+                    GaussianParams { mean: 0.0, std_dev: 1.0 },
+                    GaussianParams { mean: 0.0, std_dev: 1.0 },
+                ],
+            },
+            ClassDef {
+                name: "B".into(),
+                prior: 0.5,
+                feature_params: vec![
+                    GaussianParams { mean: 3.0, std_dev: 1.0 },
+                    GaussianParams { mean: 3.0, std_dev: 1.0 },
+                ],
+            },
+        ],
+        features: vec![1.0, 1.0],
+    };
+
+    let (output, _) = GaussianNaiveBayes.solve(&input, &spec()).unwrap();
+
+    assert_eq!(output.predicted, "A");
+    assert!(
+        (output.confidence - 0.9526).abs() < 1e-3,
+        "P(A|x) ≈ 0.9526, got {}",
+        output.confidence
+    );
+
+    let sum: f64 = output.probabilities.iter().map(|p| p.probability).sum();
+    assert!(
+        (sum - 1.0).abs() < 1e-9,
+        "probabilities must sum to 1.0, got {sum}"
+    );
+
+    let p_b = output
+        .probabilities
+        .iter()
+        .find(|p| p.class == "B")
+        .expect("class B must appear");
+    assert!(
+        (p_b.probability + output.confidence - 1.0).abs() < 1e-9,
+        "P(A) + P(B) = 1.0"
+    );
+}
+
+#[test]
+fn naive_bayes_symmetric_priors_favors_closer_mean() {
+    // Two classes, one feature, equal priors.
+    // x = 0.6; A: mean=0, σ=1; B: mean=1, σ=1.
+    // Distance from x to A's mean: 0.6; to B's mean: 0.4.
+    // B is closer → B should win.
+    let input = NaiveBayesInput {
+        classes: vec![
+            ClassDef {
+                name: "far".into(),
+                prior: 0.5,
+                feature_params: vec![GaussianParams { mean: 0.0, std_dev: 1.0 }],
+            },
+            ClassDef {
+                name: "near".into(),
+                prior: 0.5,
+                feature_params: vec![GaussianParams { mean: 1.0, std_dev: 1.0 }],
+            },
+        ],
+        features: vec![0.6],
+    };
+
+    let (output, _) = GaussianNaiveBayes.solve(&input, &spec()).unwrap();
+    assert_eq!(output.predicted, "near");
+    assert!(output.confidence > 0.5, "near should win with > 50% probability");
+}
+
+#[test]
+fn naive_bayes_prior_breaks_equidistant_tie() {
+    // x = 0.5; A: mean=0, σ=1, prior=0.9; B: mean=1, σ=1, prior=0.1.
+    // Equidistant in feature space, but A has strong prior → A wins.
+    let input = NaiveBayesInput {
+        classes: vec![
+            ClassDef {
+                name: "strong-prior".into(),
+                prior: 0.9,
+                feature_params: vec![GaussianParams { mean: 0.0, std_dev: 1.0 }],
+            },
+            ClassDef {
+                name: "weak-prior".into(),
+                prior: 0.1,
+                feature_params: vec![GaussianParams { mean: 1.0, std_dev: 1.0 }],
+            },
+        ],
+        features: vec![0.5],
+    };
+
+    let (output, _) = GaussianNaiveBayes.solve(&input, &spec()).unwrap();
+    assert_eq!(output.predicted, "strong-prior");
 }

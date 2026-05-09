@@ -39,8 +39,8 @@ pub use engine::FeatureAgent;
 pub use model::InferenceAgent;
 pub use packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
-    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
-    TrendDetectionPack,
+    FuzzyInferencePack, NaiveBayesPack, RankingPack, RegressionPack, SegmentationPack,
+    SimilarityPack, TrendDetectionPack,
 };
 pub use training::{
     DataValidationAgent, DatasetAgent, DeploymentAgent, FeatureEngineeringAgent,

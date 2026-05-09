@@ -5,8 +5,8 @@ use converge_pack::Pack;
 use converge_pack::PackSuggestor;
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
-    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
-    TrendDetectionPack,
+    FuzzyInferencePack, NaiveBayesPack, RankingPack, RegressionPack, SegmentationPack,
+    SimilarityPack, TrendDetectionPack,
 };
 use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 
@@ -604,6 +604,89 @@ async fn tsukamoto_inference_idempotent() {
                 {"name": "score", "sets": [{"name": "high", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}]}
             ],
             "rules": [{"if": {"op": "is", "variable": "quality", "set": "good"}, "then": {"variable": "score", "set": "high"}}]
+        }),
+    )
+    .await;
+}
+
+// ── Naive Bayes validation ────────────────────────────────────────────────────
+
+#[test]
+fn naive_bayes_rejects_single_class() {
+    let input = serde_json::json!({
+        "classes": [{"name": "only", "prior": 1.0, "feature_params": [{"mean": 0.0, "std_dev": 1.0}]}],
+        "features": [0.5]
+    });
+    assert!(NaiveBayesPack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn naive_bayes_rejects_zero_prior() {
+    let input = serde_json::json!({
+        "classes": [
+            {"name": "a", "prior": 0.0, "feature_params": [{"mean": 0.0, "std_dev": 1.0}]},
+            {"name": "b", "prior": 1.0, "feature_params": [{"mean": 1.0, "std_dev": 1.0}]}
+        ],
+        "features": [0.5]
+    });
+    assert!(NaiveBayesPack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn naive_bayes_rejects_zero_std_dev() {
+    let input = serde_json::json!({
+        "classes": [
+            {"name": "a", "prior": 0.5, "feature_params": [{"mean": 0.0, "std_dev": 0.0}]},
+            {"name": "b", "prior": 0.5, "feature_params": [{"mean": 1.0, "std_dev": 1.0}]}
+        ],
+        "features": [0.5]
+    });
+    assert!(NaiveBayesPack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn naive_bayes_rejects_feature_count_mismatch() {
+    let input = serde_json::json!({
+        "classes": [
+            {"name": "a", "prior": 0.5, "feature_params": [{"mean": 0.0, "std_dev": 1.0}]},
+            {"name": "b", "prior": 0.5, "feature_params": [{"mean": 1.0, "std_dev": 1.0}, {"mean": 2.0, "std_dev": 1.0}]}
+        ],
+        "features": [0.5]
+    });
+    assert!(NaiveBayesPack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn naive_bayes_rejects_empty_features() {
+    let input = serde_json::json!({
+        "classes": [
+            {"name": "a", "prior": 0.5, "feature_params": []},
+            {"name": "b", "prior": 0.5, "feature_params": []}
+        ],
+        "features": []
+    });
+    assert!(NaiveBayesPack.validate_inputs(&input).is_err());
+}
+
+// ── Garbage input ─────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn naive_bayes_garbage_input_converges_empty() {
+    run_with_garbage(NaiveBayesPack).await;
+}
+
+// ── Idempotency ───────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn naive_bayes_idempotent() {
+    run_idempotent(
+        NaiveBayesPack,
+        serde_json::json!({
+            "classes": [
+                {"name": "a", "prior": 0.5, "feature_params": [{"mean": 0.0, "std_dev": 1.0}]},
+                {"name": "b", "prior": 0.5, "feature_params": [{"mean": 5.0, "std_dev": 1.0}]}
+            ],
+            "features": [0.5]
         }),
     )
     .await;
