@@ -11,6 +11,7 @@ use prism::fuzzy::{
     weighted_average,
 };
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
+use prism::packs::trend_detection::{MovingAverageTrendSolver, TrendDetectionInput, TrendDirection};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
 use prism::packs::descriptive_stats::{DescriptiveStatsInput, DescriptiveStatsSolver};
 use prism::packs::forecasting::{ExponentialSmoothingSolver, ForecastingInput};
@@ -1248,4 +1249,133 @@ fn ranking_5_items_mixed_directions() {
     assert!((output.ranked[2].composite_score - 0.525).abs() < 1e-6);
     assert!((output.ranked[3].composite_score - 0.425).abs() < 1e-6);
     assert!((output.ranked[4].composite_score - 0.200).abs() < 1e-6);
+}
+
+// ── Moving-Average Trend Detection ───────────────────────────────────────────
+// Algorithm: OLS slope over each sliding window, then classify by threshold.
+//
+// linear_slope(values): OLS on x=0,1,...,n-1
+//   x_mean = (n-1)/2
+//   slope  = Σ(i - x_mean)(y_i - y_mean) / Σ(i - x_mean)²
+//
+// slope_threshold = mean(|window_slopes|) × sensitivity  (floor 1e-10)
+// classify: Rising if slope > threshold, Falling if slope < -threshold, else Stable
+
+#[test]
+fn trend_pure_rising_hand_computed() {
+    // Values: [10, 20, 30, 40, 50], window=3, sensitivity=0.5
+    //
+    // Each window slope (3 points, collinear rise of +10 per step):
+    //   [10,20,30]: x_mean=1, y_mean=20
+    //     numerator = (-1)(-10)+(0)(0)+(1)(10) = 20
+    //     denominator = 1+0+1 = 2  →  slope = 10.0
+    //   [20,30,40] and [30,40,50]: same structure → slope = 10.0
+    //
+    // slopes = [10.0, 10.0, 10.0]
+    //
+    // overall_slope (5 points, +10 per step):
+    //   x_mean=2, y_mean=30
+    //   numerator = (-2)(-20)+(-1)(-10)+(0)(0)+(1)(10)+(2)(20) = 40+10+0+10+40 = 100
+    //   denominator = 4+1+0+1+4 = 10  →  slope = 10.0
+    //
+    // slope_threshold = mean(10,10,10) × 0.5 = 5.0
+    // All windows Rising (10.0 > 5.0) → 1 segment, no changepoints.
+    let input = TrendDetectionInput { values: vec![10.0, 20.0, 30.0, 40.0, 50.0], window: 3, sensitivity: 0.5 };
+    let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
+
+    assert_eq!(output.overall_direction, TrendDirection::Rising);
+    assert!((output.overall_slope - 10.0).abs() < 1e-9, "overall slope = 10.0");
+    assert_eq!(output.segments.len(), 1);
+    assert_eq!(output.segments[0].direction, TrendDirection::Rising);
+    assert!((output.segments[0].slope - 10.0).abs() < 1e-9);
+    assert_eq!(output.segments[0].start, 0);
+    assert_eq!(output.segments[0].end, 4);
+    assert!(output.changepoints.is_empty());
+}
+
+#[test]
+fn trend_pure_falling_hand_computed() {
+    // Values: [50, 40, 30, 20, 10], window=3, sensitivity=0.5
+    //
+    // Symmetric to rising: each window slope = -10.0, overall slope = -10.0.
+    // slope_threshold = 10.0 × 0.5 = 5.0
+    // All windows Falling (-10.0 < -5.0) → 1 segment, no changepoints.
+    let input = TrendDetectionInput { values: vec![50.0, 40.0, 30.0, 20.0, 10.0], window: 3, sensitivity: 0.5 };
+    let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
+
+    assert_eq!(output.overall_direction, TrendDirection::Falling);
+    assert!((output.overall_slope - (-10.0)).abs() < 1e-9);
+    assert_eq!(output.segments.len(), 1);
+    assert_eq!(output.segments[0].direction, TrendDirection::Falling);
+    assert!((output.segments[0].slope - (-10.0)).abs() < 1e-9);
+    assert!(output.changepoints.is_empty());
+}
+
+#[test]
+fn trend_stable_hand_computed() {
+    // Values: [5, 5, 5, 5, 5], window=3, sensitivity=1.0
+    //
+    // All y_i equal → y_mean = 5, every (y_i - y_mean) = 0 → slope = 0 for all windows.
+    // slope_threshold = mean(0,0,0) × 1.0 = 0, clamped to 1e-10.
+    // classify_slope(0.0, 1e-10) → Stable.
+    // 1 segment: Stable, slope = 0.0.  No changepoints.
+    let input = TrendDetectionInput { values: vec![5.0, 5.0, 5.0, 5.0, 5.0], window: 3, sensitivity: 1.0 };
+    let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
+
+    assert_eq!(output.overall_direction, TrendDirection::Stable);
+    assert!(output.overall_slope.abs() < 1e-9);
+    assert_eq!(output.segments.len(), 1);
+    assert_eq!(output.segments[0].direction, TrendDirection::Stable);
+    assert!(output.changepoints.is_empty());
+}
+
+#[test]
+fn trend_rise_then_fall_hand_computed() {
+    // Values: [10, 20, 30, 20, 10], window=2, sensitivity=0.9
+    //
+    // Window slopes (2 points each, OLS: x_mean=0.5, denominator=0.5):
+    //   [10,20]: numerator=(−0.5)(−5)+(0.5)(5)=5.0  → slope = 5/0.5 = 10.0
+    //   [20,30]: same structure → slope = 10.0
+    //   [30,20]: numerator=(−0.5)(+5)+(0.5)(−5)=−5.0 → slope = −10.0
+    //   [20,10]: same structure → slope = −10.0
+    //
+    // slopes = [10.0, 10.0, −10.0, −10.0]
+    //
+    // overall_slope ([10,20,30,20,10]):
+    //   x_mean=2, y_mean=18
+    //   numerator=(−2)(−8)+(−1)(2)+(0)(12)+(1)(2)+(2)(−8) = 16−2+0+2−16 = 0
+    //   overall_slope = 0.0
+    //
+    // slope_threshold = mean(10,10,10,10) × 0.9 = 9.0
+    // overall_direction = Stable (0.0 inside [−9, 9])
+    //
+    // Segmentation:
+    //   i=0: Rising (10.0 > 9.0)  → seg_direction = Rising
+    //   i=1: Rising               → same, accumulate
+    //   i=2: Falling (−10 < −9)  → direction change!
+    //     segment {start:0, end:2 + w/2 = 3, Rising, avg_slope=10.0}
+    //     changepoint {index:3, magnitude:|−10 − 10| = 20.0}
+    //     seg_start = 3, seg_direction = Falling
+    //   i=3: Falling              → same, accumulate
+    //   end: segment {start:3, end:4, Falling, avg_slope=−10.0}
+    let input = TrendDetectionInput { values: vec![10.0, 20.0, 30.0, 20.0, 10.0], window: 2, sensitivity: 0.9 };
+    let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
+
+    assert_eq!(output.overall_direction, TrendDirection::Stable);
+    assert!(output.overall_slope.abs() < 1e-9, "symmetric series → slope = 0");
+
+    assert_eq!(output.segments.len(), 2, "one rising + one falling segment");
+    assert_eq!(output.segments[0].direction, TrendDirection::Rising);
+    assert!((output.segments[0].slope - 10.0).abs() < 1e-9);
+    assert_eq!(output.segments[0].start, 0);
+    assert_eq!(output.segments[0].end, 3);
+
+    assert_eq!(output.segments[1].direction, TrendDirection::Falling);
+    assert!((output.segments[1].slope - (-10.0)).abs() < 1e-9);
+    assert_eq!(output.segments[1].start, 3);
+    assert_eq!(output.segments[1].end, 4);
+
+    assert_eq!(output.changepoints.len(), 1);
+    assert_eq!(output.changepoints[0].index, 3);
+    assert!((output.changepoints[0].magnitude - 20.0).abs() < 1e-9);
 }
