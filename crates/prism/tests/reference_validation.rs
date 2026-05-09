@@ -4,6 +4,11 @@
 //! verified with a pocket calculator. If converge disagrees, the test fails.
 
 use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
+use prism::fuzzy::{
+    ActivatedRule, DefuzzMethod, Domain, FuzzyInferenceEngine, FuzzyInferenceInput,
+    FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction, SugenoInferenceEngine,
+    SugenoInferenceInput, defuzzify_mamdani, weighted_average,
+};
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
 use prism::packs::descriptive_stats::{DescriptiveStatsInput, DescriptiveStatsSolver};
@@ -159,6 +164,335 @@ fn logistic_classification_sigmoid() {
         "sigmoid(-1.5) ≈ {expected_p0}, got {}",
         output.predictions[1].probability
     );
+}
+
+// ── Fuzzy Inference ─────────────────────────────────────────────────────────
+// Memberships use μ_A(x): X -> [0, 1]. AND=min, OR=max, NOT=1-a.
+
+#[test]
+fn fuzzy_inference_hand_computed() {
+    // authenticity.high is a right shoulder from 0.6 to 0.9.
+    // μ_high(0.84) = (0.84-0.6)/(0.9-0.6) = 0.8.
+    //
+    // novelty.low is a left shoulder from 0.2 to 0.6.
+    // μ_low(0.25) = (0.6-0.25)/(0.6-0.2) = 0.875.
+    //
+    // Rule strength for high satisfaction:
+    // min(0.8, 0.875) = 0.8.
+    let input: FuzzyInferenceInput = serde_json::from_value(serde_json::json!({
+        "inputs": {
+            "authenticity": 0.84,
+            "novelty": 0.25
+        },
+        "variables": [
+            {
+                "name": "authenticity",
+                "sets": [
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 0.6, "end": 0.9}}
+                ]
+            },
+            {
+                "name": "novelty",
+                "sets": [
+                    {"name": "low", "function": {"kind": "left_shoulder", "start": 0.2, "end": 0.6}}
+                ]
+            },
+            {
+                "name": "satisfaction",
+                "sets": [
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 0.6, "end": 0.9}}
+                ]
+            }
+        ],
+        "rules": [
+            {
+                "id": "authentic-simple-fit",
+                "if": {
+                    "op": "and",
+                    "terms": [
+                        {"op": "is", "variable": "authenticity", "set": "high"},
+                        {"op": "is", "variable": "novelty", "set": "low"}
+                    ]
+                },
+                "then": {"variable": "satisfaction", "set": "high"}
+            }
+        ]
+    }))
+    .unwrap();
+
+    let (output, _) = FuzzyInferenceEngine.solve(&input, &spec()).unwrap();
+
+    assert!((output.input_memberships["authenticity"]["high"] - 0.8).abs() < 1e-9);
+    assert!((output.input_memberships["novelty"]["low"] - 0.875).abs() < 1e-9);
+    assert!((output.memberships["satisfaction.high"] - 0.8).abs() < 1e-9);
+    assert_eq!(output.activated_rules[0].id, "authentic-simple-fit");
+    assert!((output.confidence - 0.8).abs() < 1e-9);
+}
+
+#[test]
+fn fuzzy_membership_functions_are_hand_computable() {
+    let warm = MembershipFunction::Triangular {
+        min: 40.0,
+        peak: 60.0,
+        max: 80.0,
+    };
+    let hot = MembershipFunction::RightShoulder {
+        start: 60.0,
+        end: 80.0,
+    };
+
+    assert!((warm.evaluate(50.0) - 0.5).abs() < 1e-9);
+    assert!((warm.evaluate(60.0) - 1.0).abs() < 1e-9);
+    assert!((warm.evaluate(70.0) - 0.5).abs() < 1e-9);
+    assert!((hot.evaluate(70.0) - 0.5).abs() < 1e-9);
+    assert!((hot.evaluate(85.0) - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn fuzzy_gaussian_membership_is_hand_computable() {
+    // μ(x) = exp(-((x - center)^2) / (2 * sigma^2))
+    let g = MembershipFunction::Gaussian {
+        center: 0.0,
+        sigma: 1.0,
+    };
+    // μ(0) = exp(0) = 1.0
+    assert!((g.evaluate(0.0) - 1.0).abs() < 1e-9);
+    // μ(±1) = exp(-0.5) ≈ 0.60653...
+    let half_sigma = (-0.5_f64).exp();
+    assert!((g.evaluate(1.0) - half_sigma).abs() < 1e-9);
+    assert!((g.evaluate(-1.0) - half_sigma).abs() < 1e-9);
+
+    // shifted + wider gaussian
+    let g2 = MembershipFunction::Gaussian {
+        center: 5.0,
+        sigma: 2.0,
+    };
+    // μ(5) = 1.0; μ(7) = exp(-((2)^2)/(2*4)) = exp(-0.5)
+    assert!((g2.evaluate(5.0) - 1.0).abs() < 1e-9);
+    assert!((g2.evaluate(7.0) - half_sigma).abs() < 1e-9);
+    assert!((g2.evaluate(3.0) - half_sigma).abs() < 1e-9);
+}
+
+// ── Defuzzification ──────────────────────────────────────────────────────────
+// Mamdani returns memberships; defuzzification collapses to a crisp value.
+
+#[test]
+fn weighted_average_hand_computed() {
+    // (0.6 × 10 + 0.4 × 20) / (0.6 + 0.4) = 14 / 1 = 14
+    let result = weighted_average(&[(0.6, 10.0), (0.4, 20.0)]);
+    assert!((result.unwrap() - 14.0).abs() < 1e-9);
+
+    // empty → None
+    assert!(weighted_average(&[]).is_none());
+    // all-zero strengths → None
+    assert!(weighted_average(&[(0.0, 5.0), (0.0, 10.0)]).is_none());
+}
+
+fn symmetric_triangle_output() -> (FuzzyInferenceOutput, Vec<LinguisticVariable>) {
+    // Hand-built output: one rule fires at 1.0 with consequent y.mid = triangular(0,5,10).
+    let variables = vec![LinguisticVariable {
+        name: "y".into(),
+        sets: vec![FuzzySet {
+            name: "mid".into(),
+            function: MembershipFunction::Triangular {
+                min: 0.0,
+                peak: 5.0,
+                max: 10.0,
+            },
+        }],
+    }];
+    let mut memberships = std::collections::BTreeMap::new();
+    memberships.insert("y.mid".to_string(), 1.0);
+    let output = FuzzyInferenceOutput {
+        input_memberships: std::collections::BTreeMap::new(),
+        memberships,
+        activated_rules: vec![ActivatedRule {
+            id: "rule-1".into(),
+            antecedent_strength: 1.0,
+            weight: 1.0,
+            strength: 1.0,
+            consequent: "y.mid".into(),
+        }],
+        confidence: 1.0,
+        total_rules: 1,
+    };
+    (output, variables)
+}
+
+#[test]
+fn defuzzify_mamdani_centroid_symmetric_triangle() {
+    // Symmetric triangle peaked at 5 → centroid is exactly 5 by symmetry.
+    let (output, variables) = symmetric_triangle_output();
+    let r = defuzzify_mamdani(
+        &output,
+        &variables,
+        "y",
+        Domain {
+            min: 0.0,
+            max: 10.0,
+            steps: 1000,
+        },
+        DefuzzMethod::Centroid,
+    );
+    let centroid = r.expect("centroid defined");
+    assert!(
+        (centroid - 5.0).abs() < 1e-6,
+        "centroid ≈ 5.0, got {centroid}"
+    );
+}
+
+#[test]
+fn defuzzify_mamdani_mom_symmetric_triangle() {
+    // Maximum is at exactly x=5; MoM averages all argmax x → 5.0
+    let (output, variables) = symmetric_triangle_output();
+    let r = defuzzify_mamdani(
+        &output,
+        &variables,
+        "y",
+        Domain {
+            min: 0.0,
+            max: 10.0,
+            steps: 1000,
+        },
+        DefuzzMethod::MeanOfMaxima,
+    );
+    assert!((r.unwrap() - 5.0).abs() < 1e-9);
+}
+
+#[test]
+fn defuzzify_mamdani_no_rules_fired_returns_none() {
+    let variables = vec![LinguisticVariable {
+        name: "y".into(),
+        sets: vec![FuzzySet {
+            name: "mid".into(),
+            function: MembershipFunction::Triangular {
+                min: 0.0,
+                peak: 5.0,
+                max: 10.0,
+            },
+        }],
+    }];
+    let output = FuzzyInferenceOutput {
+        input_memberships: std::collections::BTreeMap::new(),
+        memberships: std::collections::BTreeMap::new(),
+        activated_rules: vec![],
+        confidence: 0.0,
+        total_rules: 0,
+    };
+    let r = defuzzify_mamdani(
+        &output,
+        &variables,
+        "y",
+        Domain {
+            min: 0.0,
+            max: 10.0,
+            steps: 100,
+        },
+        DefuzzMethod::Centroid,
+    );
+    assert!(r.is_none());
+}
+
+// ── Sugeno (Takagi–Sugeno) Inference ─────────────────────────────────────────
+// Output = Σ(firing_strength_i × consequent_value_i) / Σ(firing_strength_i)
+
+#[test]
+fn sugeno_constant_consequents_hand_computed() {
+    // x = 5
+    // low = LeftShoulder(2,8): μ(5) = (8-5)/(8-2) = 0.5
+    // high = RightShoulder(2,8): μ(5) = (5-2)/(8-2) = 0.5
+    // Rule low → y=0 fires at 0.5; Rule high → y=10 fires at 0.5
+    // Output = (0.5×0 + 0.5×10) / 1.0 = 5.0
+    let input: SugenoInferenceInput = serde_json::from_value(serde_json::json!({
+        "inputs": { "x": 5.0 },
+        "variables": [
+            {
+                "name": "x",
+                "sets": [
+                    {"name": "low", "function": {"kind": "left_shoulder", "start": 2.0, "end": 8.0}},
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 2.0, "end": 8.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {"id": "low-rule",
+             "if": {"op": "is", "variable": "x", "set": "low"},
+             "then": {"kind": "constant", "value": 0.0}},
+            {"id": "high-rule",
+             "if": {"op": "is", "variable": "x", "set": "high"},
+             "then": {"kind": "constant", "value": 10.0}}
+        ]
+    }))
+    .unwrap();
+
+    let (output, _) = SugenoInferenceEngine.solve(&input, &spec()).unwrap();
+
+    assert!((output.input_memberships["x"]["low"] - 0.5).abs() < 1e-9);
+    assert!((output.input_memberships["x"]["high"] - 0.5).abs() < 1e-9);
+    assert_eq!(output.activated_rules.len(), 2);
+    assert!((output.output.unwrap() - 5.0).abs() < 1e-9);
+    assert!((output.confidence - 0.5).abs() < 1e-9);
+}
+
+#[test]
+fn sugeno_linear_consequent_hand_computed() {
+    // x = 4
+    // x is mid: triangular(0, 4, 8) → μ(4) = 1.0
+    // Rule fires at 1.0; consequent y = 2.0 + 0.5×x = 4.0
+    let input: SugenoInferenceInput = serde_json::from_value(serde_json::json!({
+        "inputs": { "x": 4.0 },
+        "variables": [
+            {
+                "name": "x",
+                "sets": [
+                    {"name": "mid", "function": {"kind": "triangular", "min": 0.0, "peak": 4.0, "max": 8.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {
+                "id": "linear-rule",
+                "if": {"op": "is", "variable": "x", "set": "mid"},
+                "then": {"kind": "linear", "intercept": 2.0, "coefficients": {"x": 0.5}}
+            }
+        ]
+    }))
+    .unwrap();
+
+    let (output, _) = SugenoInferenceEngine.solve(&input, &spec()).unwrap();
+
+    assert!((output.input_memberships["x"]["mid"] - 1.0).abs() < 1e-9);
+    assert_eq!(output.activated_rules.len(), 1);
+    assert!((output.output.unwrap() - 4.0).abs() < 1e-9);
+    assert!((output.confidence - 1.0).abs() < 1e-9);
+    let activated = &output.activated_rules[0];
+    assert!((activated.consequent_value - 4.0).abs() < 1e-9);
+}
+
+#[test]
+fn sugeno_no_rules_fired_returns_none() {
+    // input outside support → no rule fires → output is None.
+    let input: SugenoInferenceInput = serde_json::from_value(serde_json::json!({
+        "inputs": { "x": 0.5 },
+        "variables": [
+            {
+                "name": "x",
+                "sets": [
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 5.0, "end": 8.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {"if": {"op": "is", "variable": "x", "set": "high"},
+             "then": {"kind": "constant", "value": 10.0}}
+        ]
+    }))
+    .unwrap();
+
+    let (output, _) = SugenoInferenceEngine.solve(&input, &spec()).unwrap();
+    assert!(output.output.is_none());
+    assert_eq!(output.activated_rules.len(), 0);
+    assert_eq!(output.confidence, 0.0);
 }
 
 // ── Cosine Similarity ────────────────────────────────────────────────────────

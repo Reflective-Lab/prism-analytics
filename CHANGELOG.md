@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `prism::fuzzy` reusable fuzzy logic capability plus `FuzzyInferencePack` for
+  explainable fuzzy-rule inference over linguistic variables, membership
+  functions, activated-rule traces, and graded outputs.
+- `MembershipFunction::Gaussian { center, sigma }` — `μ(x) = exp(-((x-c)²)/(2σ²))`
+  with `σ > 0` validation. Fifth membership-function shape alongside
+  triangular, trapezoidal, and the two shoulders.
+- `prism::fuzzy::defuzz` module with `DefuzzMethod` (Centroid, Bisector,
+  MeanOfMaxima, Height) and `defuzzify_mamdani(output, variables, output_var,
+  domain, method)`. Defuzzification is a separate opt-in pass on Mamdani
+  output so the activated-rule trace is preserved on the original output.
+  `weighted_average(rules)` exposed for callers with crisp `(strength, value)`
+  pairs.
+- `prism::fuzzy::sugeno` Sugeno (Takagi–Sugeno) FIS — `SugenoFunction`
+  (Constant, Linear) consequents, `SugenoRule`, `SugenoInferenceInput`,
+  `SugenoInferenceOutput` with per-rule firing strengths and consequent
+  values, `SugenoInferenceEngine`. Output is a single weighted-average crisp
+  value when at least one rule fires.
+- `SugenoInferencePack` — Converge pack adapter for Sugeno inference, with
+  invariants: `valid-output` (critical, finite output when rules fire),
+  `valid-memberships` (critical, inputs in [0,1]), `rule-activation`
+  (advisory, at least one rule fires).
+
 ## [1.1.0] - 2026-05-07
 
 ### Changed

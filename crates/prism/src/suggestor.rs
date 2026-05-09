@@ -2,8 +2,9 @@ use converge_pack::ContextKey;
 use converge_pack::PackSuggestor;
 
 use crate::packs::{
-    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
-    RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
+    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
+    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
+    TrendDetectionPack,
 };
 
 pub fn anomaly_detection() -> PackSuggestor<AnomalyDetectionPack> {
@@ -32,6 +33,14 @@ pub fn descriptive_stats() -> PackSuggestor<DescriptiveStatsPack> {
 
 pub fn forecasting() -> PackSuggestor<ForecastingPack> {
     PackSuggestor::new(ForecastingPack, ContextKey::Seeds, ContextKey::Strategies)
+}
+
+pub fn fuzzy_inference() -> PackSuggestor<FuzzyInferencePack> {
+    PackSuggestor::new(
+        FuzzyInferencePack,
+        ContextKey::Seeds,
+        ContextKey::Strategies,
+    )
 }
 
 pub fn ranking() -> PackSuggestor<RankingPack> {

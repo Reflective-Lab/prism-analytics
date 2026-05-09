@@ -14,6 +14,7 @@ Knowledge base for the `prism` Converge extension.
 ## Architecture
 
 - [[Architecture/Surface]] — public crate surface and contract shape
+- [[Architecture/Fuzzy Logic Capability]] — fuzzy math, inference, and boundary
 
 ## Building
 

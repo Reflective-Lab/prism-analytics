@@ -20,11 +20,13 @@
 //!
 //! - [`FeatureAgent`] — Polars-based feature extraction
 //! - [`InferenceAgent`] — Burn-based inference over feature vectors
+//! - [`FuzzyInferencePack`] — fuzzy membership and rule inference
 //! - Training pipeline suggestors — dataset, validation, feature engineering,
 //!   training, evaluation, registry, monitoring, deployment
 
 pub mod batch;
 pub mod engine;
+pub mod fuzzy;
 pub mod ingest;
 pub mod model;
 pub mod packs;
@@ -36,8 +38,9 @@ pub mod training;
 pub use engine::FeatureAgent;
 pub use model::InferenceAgent;
 pub use packs::{
-    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
-    RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
+    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
+    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
+    TrendDetectionPack,
 };
 pub use training::{
     DataValidationAgent, DatasetAgent, DeploymentAgent, FeatureEngineeringAgent,

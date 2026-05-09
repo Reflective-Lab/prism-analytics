@@ -4,18 +4,24 @@ source: mixed
 ---
 # Surface
 
-`prism` exposes one canonical published crate (`prism`)
-plus optional adapter crates with adapter-qualified names.
+`prism` exposes one canonical published crate (`converge-prism-analytics`)
+whose Rust library name is `prism`.
 
 ## Public surface
 
-- `prism` — _one-line description of the public crate_
+- `FeatureAgent` and `InferenceAgent`
+- `prism::fuzzy` reusable fuzzy inference capability
+- Training pipeline agents for dataset, validation, feature engineering,
+  training, evaluation, registry, monitoring, deployment, and sample inference
+- Analytics packs for anomaly detection, classification, descriptive stats,
+  forecasting, fuzzy inference (Mamdani + Sugeno), ranking, regression,
+  segmentation, similarity, and trend detection
 
 ## Contract dependencies
 
 - `converge-pack` — `Pack`, `ProposedPlan`, `ProblemSpec`
-- `converge-model` — semantic types
-- `converge-provider` — capability identity (when applicable)
+- `converge-optimization` — pack invariants and gate evaluation helpers
+- `converge-storage` — optional storage feature
 
 ## Forbidden imports
 

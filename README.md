@@ -30,6 +30,7 @@ over promotion.
 
 - Polars-based ingestion and feature extraction.
 - Burn-based inference examples.
+- Reusable fuzzy inference capability through `prism::fuzzy`.
 - Analytic pack solvers and typed inputs/outputs.
 - Training pipeline agents: dataset, validation, feature engineering,
   hyperparameter search, model training, evaluation, registry, monitoring,
@@ -44,6 +45,7 @@ over promotion.
 | `ClassificationPack` | Logistic classification |
 | `DescriptiveStatsPack` | Mean, median, variance, percentiles |
 | `ForecastingPack` | Exponential smoothing |
+| `FuzzyInferencePack` | Membership functions and explainable fuzzy rules |
 | `RankingPack` | Weighted multi-criteria ranking |
 | `RegressionPack` | Linear regression |
 | `SegmentationPack` | K-means clustering |
@@ -63,6 +65,7 @@ over promotion.
 ```text
 crates/prism/
   src/engine.rs     FeatureAgent and feature vectors
+  src/fuzzy/        Reusable fuzzy membership and inference capability
   src/ingest.rs     CSV, TSV, Parquet, and optional Excel ingestion
   src/model.rs      Burn inference example
   src/packs/        Analytics packs and solvers

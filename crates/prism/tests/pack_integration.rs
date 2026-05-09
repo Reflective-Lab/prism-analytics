@@ -3,8 +3,9 @@
 use converge_kernel::{Budget, ContextKey, ContextState, ConvergeResult, Engine};
 use converge_pack::PackSuggestor;
 use prism::packs::{
-    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
-    RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
+    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
+    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
+    TrendDetectionPack,
 };
 
 fn budget() -> Budget {
@@ -116,6 +117,77 @@ async fn forecasting_produces_predictions() {
     assert!(content.contains("\"step\":1"));
     assert!(content.contains("\"step\":2"));
     assert!(content.contains("\"step\":3"));
+}
+
+#[tokio::test]
+async fn fuzzy_inference_grades_expectation_signal() {
+    let result = run_with_input(
+        FuzzyInferencePack,
+        serde_json::json!({
+            "inputs": {
+                "authenticity": 0.84,
+                "novelty": 0.25,
+                "wait_time": 0.40
+            },
+            "variables": [
+                {
+                    "name": "authenticity",
+                    "sets": [
+                        {"name": "low", "function": {"kind": "left_shoulder", "start": 0.2, "end": 0.5}},
+                        {"name": "high", "function": {"kind": "right_shoulder", "start": 0.6, "end": 0.9}}
+                    ]
+                },
+                {
+                    "name": "novelty",
+                    "sets": [
+                        {"name": "low", "function": {"kind": "left_shoulder", "start": 0.2, "end": 0.6}},
+                        {"name": "high", "function": {"kind": "right_shoulder", "start": 0.5, "end": 0.9}}
+                    ]
+                },
+                {
+                    "name": "wait_time",
+                    "sets": [
+                        {"name": "low", "function": {"kind": "left_shoulder", "start": 0.2, "end": 0.6}},
+                        {"name": "high", "function": {"kind": "right_shoulder", "start": 0.5, "end": 0.9}}
+                    ]
+                },
+                {
+                    "name": "satisfaction",
+                    "sets": [
+                        {"name": "low", "function": {"kind": "left_shoulder", "start": 0.2, "end": 0.5}},
+                        {"name": "high", "function": {"kind": "right_shoulder", "start": 0.6, "end": 0.9}}
+                    ]
+                }
+            ],
+            "rules": [
+                {
+                    "id": "authentic-novelty-fit",
+                    "if": {
+                        "op": "and",
+                        "terms": [
+                            {"op": "is", "variable": "authenticity", "set": "high"},
+                            {"op": "is", "variable": "novelty", "set": "low"}
+                        ]
+                    },
+                    "then": {"variable": "satisfaction", "set": "high"}
+                },
+                {
+                    "id": "slow-service-penalty",
+                    "if": {"op": "is", "variable": "wait_time", "set": "high"},
+                    "then": {"variable": "satisfaction", "set": "low"}
+                }
+            ]
+        }),
+    )
+    .await;
+
+    assert!(result.converged);
+    let strategies = result.context.get(ContextKey::Strategies);
+    assert_eq!(strategies.len(), 1);
+    let content = strategies[0].content();
+    assert!(content.contains("satisfaction.high"));
+    assert!(content.contains("authentic-novelty-fit"));
+    assert!(content.contains("\"confidence\""));
 }
 
 #[tokio::test]

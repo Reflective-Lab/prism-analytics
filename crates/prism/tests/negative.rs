@@ -4,8 +4,9 @@ use converge_kernel::{Budget, ContextKey, ContextState, Engine};
 use converge_pack::Pack;
 use converge_pack::PackSuggestor;
 use prism::packs::{
-    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
-    RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
+    AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
+    FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
+    TrendDetectionPack,
 };
 
 fn budget() -> Budget {
@@ -189,6 +190,62 @@ fn descriptive_stats_rejects_invalid_percentile() {
     assert!(DescriptiveStatsPack.validate_inputs(&input).is_err());
 }
 
+#[test]
+fn fuzzy_rejects_invalid_membership_bounds() {
+    let input = serde_json::json!({
+        "inputs": {"temperature": 55.0},
+        "variables": [
+            {
+                "name": "temperature",
+                "sets": [
+                    {"name": "warm", "function": {"kind": "triangular", "min": 40.0, "peak": 40.0, "max": 80.0}}
+                ]
+            },
+            {
+                "name": "comfort",
+                "sets": [
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 0.5, "end": 1.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {
+                "if": {"op": "is", "variable": "temperature", "set": "warm"},
+                "then": {"variable": "comfort", "set": "high"}
+            }
+        ]
+    });
+    assert!(FuzzyInferencePack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn fuzzy_rejects_unknown_rule_set() {
+    let input = serde_json::json!({
+        "inputs": {"temperature": 55.0},
+        "variables": [
+            {
+                "name": "temperature",
+                "sets": [
+                    {"name": "warm", "function": {"kind": "triangular", "min": 40.0, "peak": 60.0, "max": 80.0}}
+                ]
+            },
+            {
+                "name": "comfort",
+                "sets": [
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 0.5, "end": 1.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {
+                "if": {"op": "is", "variable": "temperature", "set": "hot"},
+                "then": {"variable": "comfort", "set": "high"}
+            }
+        ]
+    });
+    assert!(FuzzyInferencePack.validate_inputs(&input).is_err());
+}
+
 // ── Engine-level: invalid JSON seed → pack returns empty effect, engine converges ──
 
 async fn run_with_garbage<P: Pack + 'static>(pack: P) {
@@ -249,6 +306,11 @@ async fn trend_detection_garbage_input_converges_empty() {
 #[tokio::test]
 async fn descriptive_stats_garbage_input_converges_empty() {
     run_with_garbage(DescriptiveStatsPack).await;
+}
+
+#[tokio::test]
+async fn fuzzy_garbage_input_converges_empty() {
+    run_with_garbage(FuzzyInferencePack).await;
 }
 
 // ── Idempotency: running same input twice yields same output (no duplication) ──
@@ -370,6 +432,37 @@ async fn descriptive_stats_idempotent() {
     run_idempotent(
         DescriptiveStatsPack,
         serde_json::json!({"values": [10.0, 20.0, 30.0]}),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn fuzzy_inference_idempotent() {
+    run_idempotent(
+        FuzzyInferencePack,
+        serde_json::json!({
+            "inputs": {"temperature": 70.0},
+            "variables": [
+                {
+                    "name": "temperature",
+                    "sets": [
+                        {"name": "warm", "function": {"kind": "triangular", "min": 40.0, "peak": 60.0, "max": 80.0}}
+                    ]
+                },
+                {
+                    "name": "comfort",
+                    "sets": [
+                        {"name": "high", "function": {"kind": "right_shoulder", "start": 0.4, "end": 0.8}}
+                    ]
+                }
+            ],
+            "rules": [
+                {
+                    "if": {"op": "is", "variable": "temperature", "set": "warm"},
+                    "then": {"variable": "comfort", "set": "high"}
+                }
+            ]
+        }),
     )
     .await;
 }
