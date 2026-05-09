@@ -100,6 +100,46 @@ impl MembershipFunction {
         membership.clamp(0.0, 1.0)
     }
 
+    /// Whether this membership function is monotonic over its support.
+    ///
+    /// Tsukamoto inference requires monotonic consequent MFs so the firing
+    /// strength can be uniquely inverted to a crisp consequent value.
+    pub fn is_monotonic(&self) -> bool {
+        matches!(self, Self::LeftShoulder { .. } | Self::RightShoulder { .. })
+    }
+
+    /// Inverse of the membership function: given a target membership in
+    /// `[0, 1]`, return the crisp `x` such that `μ(x) = target`.
+    ///
+    /// Defined only for monotonic shapes. Returns `Err` for non-monotonic
+    /// MFs (Triangular, Trapezoidal, Gaussian) where the inverse is not
+    /// unique.
+    pub fn inverse(&self, target: f64) -> Result<f64> {
+        if !target.is_finite() || !(0.0..=1.0).contains(&target) {
+            return Err(converge_pack::GateError::invalid_input(
+                "inverse target must be a finite membership in [0, 1]",
+            ));
+        }
+        match *self {
+            Self::LeftShoulder { start, end } => {
+                // μ(x) = 1 for x ≤ start, ramps 1 → 0 across [start, end], 0 for x ≥ end.
+                // Inverse: x = end - target × (end - start).
+                Ok(end - target * (end - start))
+            }
+            Self::RightShoulder { start, end } => {
+                // μ(x) = 0 for x ≤ start, ramps 0 → 1 across [start, end], 1 for x ≥ end.
+                // Inverse: x = start + target × (end - start).
+                Ok(start + target * (end - start))
+            }
+            Self::Triangular { .. } | Self::Trapezoidal { .. } | Self::Gaussian { .. } => {
+                Err(converge_pack::GateError::invalid_input(
+                    "inverse is only defined for monotonic membership functions \
+                     (left/right shoulder)",
+                ))
+            }
+        }
+    }
+
     pub fn validate(&self) -> Result<()> {
         match *self {
             Self::Triangular { min, peak, max } => {

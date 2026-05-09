@@ -29,6 +29,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   invariants: `valid-output` (critical, finite output when rules fire),
   `valid-memberships` (critical, inputs in [0,1]), `rule-activation`
   (advisory, at least one rule fires).
+- `MembershipFunction::is_monotonic()` and `MembershipFunction::inverse(target)` —
+  monotonicity classification and inverse function over monotonic shapes.
+  LeftShoulder and RightShoulder are monotonic; Triangular, Trapezoidal, and
+  Gaussian return `Err` from `inverse`.
+- `prism::fuzzy::tsukamoto` — Tsukamoto FIS with `TsukamotoConsequent`
+  (linguistic term over a *monotonic* consequent MF), `TsukamotoRule`,
+  `TsukamotoInferenceInput`, `TsukamotoInferenceOutput` carrying per-rule
+  firing strengths and crisp consequent values, `TsukamotoInferenceEngine`.
+  Output is the weighted average of `inverse(consequent_MF, firing_strength)`
+  across activated rules. Validation rejects non-monotonic consequent MFs.
+- `TsukamotoInferencePack` — Converge pack adapter for Tsukamoto inference,
+  with the same invariants shape as `SugenoInferencePack`.
 
 ## [1.1.0] - 2026-05-07
 

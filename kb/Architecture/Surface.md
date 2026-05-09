@@ -14,8 +14,8 @@ whose Rust library name is `prism`.
 - Training pipeline agents for dataset, validation, feature engineering,
   training, evaluation, registry, monitoring, deployment, and sample inference
 - Analytics packs for anomaly detection, classification, descriptive stats,
-  forecasting, fuzzy inference (Mamdani + Sugeno), ranking, regression,
-  segmentation, similarity, and trend detection
+  forecasting, fuzzy inference (Mamdani + Sugeno + Tsukamoto), ranking,
+  regression, segmentation, similarity, and trend detection
 
 ## Contract dependencies
 

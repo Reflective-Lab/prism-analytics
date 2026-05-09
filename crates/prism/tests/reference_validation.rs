@@ -7,7 +7,8 @@ use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
 use prism::fuzzy::{
     ActivatedRule, DefuzzMethod, Domain, FuzzyInferenceEngine, FuzzyInferenceInput,
     FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction, SugenoInferenceEngine,
-    SugenoInferenceInput, defuzzify_mamdani, weighted_average,
+    SugenoInferenceInput, TsukamotoInferenceEngine, TsukamotoInferenceInput, defuzzify_mamdani,
+    weighted_average,
 };
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
@@ -467,6 +468,187 @@ fn sugeno_linear_consequent_hand_computed() {
     assert!((output.confidence - 1.0).abs() < 1e-9);
     let activated = &output.activated_rules[0];
     assert!((activated.consequent_value - 4.0).abs() < 1e-9);
+}
+
+// ── Tsukamoto Inference ──────────────────────────────────────────────────────
+// Output = Σ(α_i × inverse(consequent_MF_i, α_i)) / Σ(α_i)
+// Requires monotonic consequent MFs.
+
+#[test]
+fn fuzzy_membership_monotonic_classification() {
+    assert!(
+        MembershipFunction::LeftShoulder {
+            start: 0.0,
+            end: 1.0
+        }
+        .is_monotonic()
+    );
+    assert!(
+        MembershipFunction::RightShoulder {
+            start: 0.0,
+            end: 1.0
+        }
+        .is_monotonic()
+    );
+    assert!(
+        !MembershipFunction::Triangular {
+            min: 0.0,
+            peak: 0.5,
+            max: 1.0
+        }
+        .is_monotonic()
+    );
+    assert!(
+        !MembershipFunction::Trapezoidal {
+            min: 0.0,
+            lower_peak: 0.3,
+            upper_peak: 0.7,
+            max: 1.0
+        }
+        .is_monotonic()
+    );
+    assert!(
+        !MembershipFunction::Gaussian {
+            center: 0.0,
+            sigma: 1.0
+        }
+        .is_monotonic()
+    );
+}
+
+#[test]
+fn fuzzy_membership_inverse_for_shoulders() {
+    // LeftShoulder(0, 10): μ(0)=1, μ(10)=0, μ(5)=0.5
+    let left = MembershipFunction::LeftShoulder {
+        start: 0.0,
+        end: 10.0,
+    };
+    assert!((left.inverse(1.0).unwrap() - 0.0).abs() < 1e-9);
+    assert!((left.inverse(0.0).unwrap() - 10.0).abs() < 1e-9);
+    assert!((left.inverse(0.5).unwrap() - 5.0).abs() < 1e-9);
+
+    // RightShoulder(0, 10): μ(0)=0, μ(10)=1, μ(5)=0.5
+    let right = MembershipFunction::RightShoulder {
+        start: 0.0,
+        end: 10.0,
+    };
+    assert!((right.inverse(0.0).unwrap() - 0.0).abs() < 1e-9);
+    assert!((right.inverse(1.0).unwrap() - 10.0).abs() < 1e-9);
+    assert!((right.inverse(0.5).unwrap() - 5.0).abs() < 1e-9);
+
+    // Non-monotonic shapes return Err
+    let triangle = MembershipFunction::Triangular {
+        min: 0.0,
+        peak: 5.0,
+        max: 10.0,
+    };
+    assert!(triangle.inverse(0.5).is_err());
+    let gaussian = MembershipFunction::Gaussian {
+        center: 0.0,
+        sigma: 1.0,
+    };
+    assert!(gaussian.inverse(0.5).is_err());
+
+    // Out-of-range targets return Err
+    assert!(left.inverse(1.5).is_err());
+    assert!(left.inverse(-0.1).is_err());
+    assert!(left.inverse(f64::NAN).is_err());
+}
+
+#[test]
+fn tsukamoto_hand_computed() {
+    // x = 3
+    // low(LeftShoulder 0,10): μ(3) = (10-3)/10 = 0.7
+    // high(RightShoulder 0,10): μ(3) = 3/10 = 0.3
+    // Rule 1: low → small_y, where small_y = LeftShoulder(0, 100)
+    //   firing = 0.7; inverse(small_y, 0.7) = 100 - 0.7×100 = 30
+    // Rule 2: high → big_y, where big_y = RightShoulder(50, 250)
+    //   firing = 0.3; inverse(big_y, 0.3) = 50 + 0.3×200 = 110
+    // Output = (0.7×30 + 0.3×110) / (0.7+0.3) = (21 + 33) / 1 = 54
+    let input: TsukamotoInferenceInput = serde_json::from_value(serde_json::json!({
+        "inputs": { "x": 3.0 },
+        "variables": [
+            {
+                "name": "x",
+                "sets": [
+                    {"name": "low", "function": {"kind": "left_shoulder", "start": 0.0, "end": 10.0}},
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 0.0, "end": 10.0}}
+                ]
+            },
+            {
+                "name": "y",
+                "sets": [
+                    {"name": "small_y", "function": {"kind": "left_shoulder", "start": 0.0, "end": 100.0}},
+                    {"name": "big_y", "function": {"kind": "right_shoulder", "start": 50.0, "end": 250.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {"id": "low-rule",
+             "if": {"op": "is", "variable": "x", "set": "low"},
+             "then": {"variable": "y", "set": "small_y"}},
+            {"id": "high-rule",
+             "if": {"op": "is", "variable": "x", "set": "high"},
+             "then": {"variable": "y", "set": "big_y"}}
+        ]
+    }))
+    .unwrap();
+
+    let (output, _) = TsukamotoInferenceEngine.solve(&input, &spec()).unwrap();
+
+    assert!((output.input_memberships["x"]["low"] - 0.7).abs() < 1e-9);
+    assert!((output.input_memberships["x"]["high"] - 0.3).abs() < 1e-9);
+    assert_eq!(output.activated_rules.len(), 2);
+
+    // Find low-rule and high-rule by id
+    let low = output
+        .activated_rules
+        .iter()
+        .find(|r| r.id == "low-rule")
+        .unwrap();
+    let high = output
+        .activated_rules
+        .iter()
+        .find(|r| r.id == "high-rule")
+        .unwrap();
+    assert!((low.firing_strength - 0.7).abs() < 1e-9);
+    assert!((low.consequent_value - 30.0).abs() < 1e-9);
+    assert!((high.firing_strength - 0.3).abs() < 1e-9);
+    assert!((high.consequent_value - 110.0).abs() < 1e-9);
+
+    assert!((output.output.unwrap() - 54.0).abs() < 1e-9);
+    assert!((output.confidence - 0.7).abs() < 1e-9);
+}
+
+#[test]
+fn tsukamoto_rejects_non_monotonic_consequent() {
+    // Consequent uses Triangular — not monotonic → validation must fail
+    let input: TsukamotoInferenceInput = serde_json::from_value(serde_json::json!({
+        "inputs": { "x": 0.5 },
+        "variables": [
+            {
+                "name": "x",
+                "sets": [
+                    {"name": "high", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}
+                ]
+            },
+            {
+                "name": "y",
+                "sets": [
+                    {"name": "mid", "function": {"kind": "triangular", "min": 0.0, "peak": 0.5, "max": 1.0}}
+                ]
+            }
+        ],
+        "rules": [
+            {
+                "if": {"op": "is", "variable": "x", "set": "high"},
+                "then": {"variable": "y", "set": "mid"}
+            }
+        ]
+    }))
+    .unwrap();
+
+    assert!(input.validate().is_err());
 }
 
 #[test]

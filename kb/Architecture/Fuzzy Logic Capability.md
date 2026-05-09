@@ -108,7 +108,7 @@ and ANFIS remain non-goals for v1.
 |---|---|---|---|---|---|
 | **Mamdani** | Fuzzy set | Yes (opt-in) | Medium | Human-readable | ✓ shipped |
 | **Sugeno** | Equation / constant | Weighted average | Low–Medium | Fast & ML-friendly | ✓ shipped |
-| **Tsukamoto** | Crisp from monotonic fuzzy set | Weighted average | Medium | Smooth outputs | — out of scope |
+| **Tsukamoto** | Crisp from monotonic fuzzy set | Weighted average | Medium | Smooth outputs | ✓ shipped |
 | **Type-2** | Fuzzy uncertainty sets | Type reduction | High | Handles uncertainty | — out of scope |
 | **ANFIS** | Learned Sugeno | Weighted average | Very high | Learns from data | — out of scope |
 
@@ -123,6 +123,13 @@ and ANFIS remain non-goals for v1.
   `intercept + Σ coefficient_i × input_i`). Inference returns a single
   weighted-average crisp output along with per-rule firing strengths and
   consequent values. `SugenoInferencePack` exposes it as a Converge pack.
+- **Tsukamoto FIS.** Rule consequents are linguistic terms over
+  *monotonic* membership functions (left/right shoulder). Each rule's
+  contribution is the crisp `x` where `μ_consequent(x) = firing_strength`,
+  found by inverting the consequent MF. Output is the weighted average of
+  per-rule crisp values. `is_monotonic()` and `inverse()` are exposed on
+  `MembershipFunction`; non-monotonic consequents are rejected at
+  validation. `TsukamotoInferencePack` exposes it as a Converge pack.
 - **Membership functions.** Triangular, trapezoidal, left-shoulder,
   right-shoulder, Gaussian.
 - **Operators.** `is`, `and` (min), `or` (max), `not` (1 − a).
@@ -134,10 +141,6 @@ and ANFIS remain non-goals for v1.
 
 ### Deliberately out of scope (non-goals for v1)
 
-- **Tsukamoto FIS.** Smooth outputs via weighted average over crisp values
-  derived from monotonic consequent MFs. Requires monotonic-MF validation
-  and a different aggregation rule. Promote when an app needs the smooth
-  output property and Sugeno's linear consequents are not sufficient.
 - **Type-2 fuzzy logic.** Interval or general Type-2 sets carry membership
   uncertainty and require a type-reduction step (e.g. Karnik–Mendel). High
   computational cost. Promote when an app must reason about *uncertainty
@@ -147,7 +150,7 @@ and ANFIS remain non-goals for v1.
   integration, training-agent infrastructure). Promote when an app has the
   data and labels to learn rules from, rather than authoring them.
 
-### The two niches the v1 slice serves
+### The three niches the v1 slice serves
 
 - **Mamdani niche** — consultative / interpretive workflows where the
   rulebook itself is part of the artifact a domain expert must defend.
@@ -159,13 +162,19 @@ and ANFIS remain non-goals for v1.
   linear in the ML-friendly case) and a single crisp output is the
   product. Lower complexity than Mamdani, easier to compose with
   ranking / regression downstream.
+- **Tsukamoto niche** — control / decision workflows where the consequent
+  is best expressed as a linguistic term ("y is small_y") rather than a
+  function of inputs, but a single smooth crisp output is still required.
+  Combines Mamdani-style readability of consequents with Sugeno-style
+  weighted-average aggregation, at the cost of the monotonic-MF
+  constraint on consequents.
 
 ### Promotion rule
 
-Adding a new slice (Tsukamoto, Type-2, ANFIS) requires a concrete pull from
-an app or engagement that demonstrably needs that variant's distinguishing
-property — not analogy to fuzzy-logic toolkits or completeness for its own
-sake.
+Adding a new slice (Type-2, ANFIS) requires a concrete pull from an app
+or engagement that demonstrably needs that variant's distinguishing
+property — not analogy to fuzzy-logic toolkits or completeness for its
+own sake.
 
 ## Boundary
 

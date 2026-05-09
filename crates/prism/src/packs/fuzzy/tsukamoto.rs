@@ -1,21 +1,16 @@
-mod sugeno;
-mod tsukamoto;
-
-pub use crate::fuzzy::*;
-pub use sugeno::*;
-pub use tsukamoto::*;
-
 use converge_optimization::packs::{
     InvariantDef, InvariantResult, Pack, PackSolveResult, default_gate_evaluation,
 };
 use converge_pack::gate::GateResult as Result;
 use converge_pack::gate::{KernelTraceLink, ProblemSpec, PromotionGate, ProposedPlan};
 
-pub struct FuzzyInferencePack;
+use crate::fuzzy::{TsukamotoInferenceEngine, TsukamotoInferenceInput, TsukamotoInferenceOutput};
 
-impl Pack for FuzzyInferencePack {
+pub struct TsukamotoInferencePack;
+
+impl Pack for TsukamotoInferencePack {
     fn name(&self) -> &'static str {
-        "fuzzy-inference"
+        "tsukamoto-inference"
     }
 
     fn version(&self) -> &'static str {
@@ -23,7 +18,7 @@ impl Pack for FuzzyInferencePack {
     }
 
     fn validate_inputs(&self, inputs: &serde_json::Value) -> Result<()> {
-        let input: FuzzyInferenceInput = serde_json::from_value(inputs.clone())
+        let input: TsukamotoInferenceInput = serde_json::from_value(inputs.clone())
             .map_err(|e| converge_pack::GateError::invalid_input(format!("Invalid input: {e}")))?;
         input.validate()
     }
@@ -33,12 +28,16 @@ impl Pack for FuzzyInferencePack {
             std::sync::LazyLock::new(|| {
                 vec![
                     InvariantDef::critical(
-                        "valid-memberships",
-                        "All fuzzy memberships must be in [0, 1]",
+                        "valid-output",
+                        "Tsukamoto output must be finite when at least one rule fires",
                     ),
                     InvariantDef::advisory(
                         "rule-activation",
-                        "No fuzzy rule fired - output carries no active expectation signal",
+                        "No tsukamoto rule fired - output carries no decision signal",
+                    ),
+                    InvariantDef::critical(
+                        "valid-memberships",
+                        "All input memberships must be in [0, 1]",
                     ),
                 ]
             });
@@ -46,10 +45,10 @@ impl Pack for FuzzyInferencePack {
     }
 
     fn solve(&self, spec: &ProblemSpec) -> Result<PackSolveResult> {
-        let input: FuzzyInferenceInput = spec.inputs_as()?;
+        let input: TsukamotoInferenceInput = spec.inputs_as()?;
         input.validate()?;
 
-        let solver = FuzzyInferenceEngine;
+        let solver = TsukamotoInferenceEngine;
         let (output, report) = solver.solve(&input, spec)?;
 
         let trace = KernelTraceLink::audit_only(format!("trace-{}", spec.problem_id));
@@ -67,20 +66,16 @@ impl Pack for FuzzyInferencePack {
     }
 
     fn check_invariants(&self, plan: &ProposedPlan) -> Result<Vec<InvariantResult>> {
-        let output: FuzzyInferenceOutput = serde_json::from_value(plan.plan.clone())
+        let output: TsukamotoInferenceOutput = serde_json::from_value(plan.plan.clone())
             .map_err(|e| converge_pack::GateError::invalid_input(e.to_string()))?;
 
         let mut results = vec![];
-        let outputs_valid = output
-            .memberships
-            .values()
-            .all(|value| value.is_finite() && (0.0..=1.0).contains(value));
+
         let inputs_valid = output.input_memberships.values().all(|sets| {
             sets.values()
                 .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
         });
-
-        if outputs_valid && inputs_valid {
+        if inputs_valid {
             results.push(InvariantResult::pass("valid-memberships"));
         } else {
             results.push(InvariantResult::fail(
@@ -88,15 +83,38 @@ impl Pack for FuzzyInferencePack {
                 converge_pack::gate::Violation::new(
                     "valid-memberships",
                     1.0,
-                    "A fuzzy membership was outside [0, 1]",
+                    "An input membership was outside [0, 1]",
                 ),
             ));
+        }
+
+        match output.output {
+            Some(value) if value.is_finite() => {
+                results.push(InvariantResult::pass("valid-output"));
+            }
+            Some(_) => {
+                results.push(InvariantResult::fail(
+                    "valid-output",
+                    converge_pack::gate::Violation::new(
+                        "valid-output",
+                        1.0,
+                        "Tsukamoto output was non-finite",
+                    ),
+                ));
+            }
+            None => {
+                results.push(InvariantResult::pass("valid-output"));
+            }
         }
 
         if output.activated_rules.is_empty() {
             results.push(InvariantResult::fail(
                 "rule-activation",
-                converge_pack::gate::Violation::new("rule-activation", 0.0, "No fuzzy rules fired"),
+                converge_pack::gate::Violation::new(
+                    "rule-activation",
+                    0.0,
+                    "No tsukamoto rules fired",
+                ),
             ));
         } else {
             results.push(InvariantResult::pass("rule-activation"));
