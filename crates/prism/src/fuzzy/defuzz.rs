@@ -117,6 +117,126 @@ pub fn defuzzify_mamdani(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use super::{defuzzify_mamdani, weighted_average, DefuzzMethod, Domain};
+    use crate::fuzzy::{ActivatedRule, FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction};
+
+    fn make_output(key: &str, strength: f64) -> FuzzyInferenceOutput {
+        let mut memberships = BTreeMap::new();
+        memberships.insert(key.to_string(), strength);
+        FuzzyInferenceOutput {
+            input_memberships: BTreeMap::new(),
+            memberships,
+            activated_rules: vec![ActivatedRule {
+                id: "r1".to_string(),
+                antecedent_strength: strength,
+                weight: 1.0,
+                strength,
+                consequent: key.to_string(),
+            }],
+            confidence: strength,
+            total_rules: 1,
+        }
+    }
+
+    fn sym_triangle_vars() -> Vec<LinguisticVariable> {
+        vec![LinguisticVariable {
+            name: "out".to_string(),
+            sets: vec![FuzzySet {
+                name: "mid".to_string(),
+                function: MembershipFunction::Triangular { min: 0.0, peak: 50.0, max: 100.0 },
+            }],
+        }]
+    }
+
+    // ── Domain validation ─────────────────────────────────────────────────────
+
+    #[test]
+    fn domain_invalid_min_ge_max_returns_none() {
+        let d = Domain::new(100.0, 0.0, 100);
+        assert!(defuzzify_mamdani(&make_output("out.mid", 1.0), &sym_triangle_vars(), "out", d, DefuzzMethod::Centroid).is_none());
+    }
+
+    #[test]
+    fn domain_invalid_zero_steps_returns_none() {
+        let d = Domain::new(0.0, 100.0, 0);
+        assert!(defuzzify_mamdani(&make_output("out.mid", 1.0), &sym_triangle_vars(), "out", d, DefuzzMethod::Centroid).is_none());
+    }
+
+    #[test]
+    fn domain_invalid_non_finite_returns_none() {
+        let d = Domain::new(f64::NAN, 100.0, 100);
+        assert!(defuzzify_mamdani(&make_output("out.mid", 1.0), &sym_triangle_vars(), "out", d, DefuzzMethod::Centroid).is_none());
+    }
+
+    // ── Edge cases ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn unknown_output_variable_returns_none() {
+        let output = make_output("out.mid", 0.8);
+        let result = defuzzify_mamdani(&output, &sym_triangle_vars(), "nonexistent", Domain::new(0.0, 100.0, 100), DefuzzMethod::Centroid);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn zero_strength_consequent_returns_none() {
+        let output = make_output("out.mid", 0.0);
+        let result = defuzzify_mamdani(&output, &sym_triangle_vars(), "out", Domain::new(0.0, 100.0, 100), DefuzzMethod::Centroid);
+        assert!(result.is_none());
+    }
+
+    // ── Defuzz methods on symmetric triangle ──────────────────────────────────
+
+    fn sym_result(method: DefuzzMethod) -> f64 {
+        let output = make_output("out.mid", 1.0);
+        defuzzify_mamdani(&output, &sym_triangle_vars(), "out", Domain::new(0.0, 100.0, 1000), method).unwrap()
+    }
+
+    #[test]
+    fn centroid_symmetric_triangle_returns_center() {
+        assert!((sym_result(DefuzzMethod::Centroid) - 50.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn bisector_symmetric_triangle_returns_center() {
+        assert!((sym_result(DefuzzMethod::Bisector) - 50.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn mean_of_maxima_symmetric_triangle_returns_center() {
+        assert!((sym_result(DefuzzMethod::MeanOfMaxima) - 50.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn height_symmetric_triangle_returns_center() {
+        assert!((sym_result(DefuzzMethod::Height) - 50.0).abs() < 1.0);
+    }
+
+    // ── weighted_average ──────────────────────────────────────────────────────
+
+    #[test]
+    fn weighted_average_single_rule() {
+        assert!((weighted_average(&[(1.0, 42.0)]).unwrap() - 42.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn weighted_average_two_equal_rules() {
+        assert!((weighted_average(&[(0.5, 10.0), (0.5, 20.0)]).unwrap() - 15.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn weighted_average_empty_returns_none() {
+        assert!(weighted_average(&[]).is_none());
+    }
+
+    #[test]
+    fn weighted_average_zero_den_returns_none() {
+        assert!(weighted_average(&[(0.0, 10.0)]).is_none());
+    }
+}
+
 pub fn weighted_average(rules: &[(f64, f64)]) -> Option<f64> {
     let den: f64 = rules.iter().map(|(strength, _)| *strength).sum();
     if den == 0.0 || !den.is_finite() {

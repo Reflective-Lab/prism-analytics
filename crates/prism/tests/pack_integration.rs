@@ -7,6 +7,7 @@ use prism::packs::{
     FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
     TrendDetectionPack,
 };
+use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 
 fn budget() -> Budget {
     Budget {
@@ -303,4 +304,112 @@ async fn descriptive_stats_computes_summary() {
     assert!(content.contains("std_dev"));
     // mean of [10,20,30,40,50] = 30
     assert!(content.contains("30"));
+}
+
+#[tokio::test]
+async fn sugeno_constant_rule_produces_output() {
+    let result = run_with_input(
+        SugenoInferencePack,
+        serde_json::json!({
+            "inputs": {"speed": 80.0},
+            "variables": [
+                {
+                    "name": "speed",
+                    "sets": [
+                        {"name": "fast", "function": {"kind": "right_shoulder", "start": 50.0, "end": 100.0}}
+                    ]
+                }
+            ],
+            "rules": [
+                {
+                    "id": "speed-penalty",
+                    "if": {"op": "is", "variable": "speed", "set": "fast"},
+                    "then": {"kind": "constant", "value": 90.0}
+                }
+            ]
+        }),
+    )
+    .await;
+
+    assert!(result.converged);
+    let strategies = result.context.get(ContextKey::Strategies);
+    assert_eq!(strategies.len(), 1);
+    let content = strategies[0].content();
+    assert!(content.contains("output"));
+    assert!(content.contains("speed-penalty"));
+    assert!(content.contains("\"confidence\""));
+}
+
+#[tokio::test]
+async fn sugeno_linear_rule_produces_output() {
+    let result = run_with_input(
+        SugenoInferencePack,
+        serde_json::json!({
+            "inputs": {"x": 2.0, "y": 3.0},
+            "variables": [
+                {
+                    "name": "x",
+                    "sets": [{"name": "pos", "function": {"kind": "right_shoulder", "start": 0.0, "end": 4.0}}]
+                },
+                {
+                    "name": "y",
+                    "sets": [{"name": "pos", "function": {"kind": "right_shoulder", "start": 0.0, "end": 6.0}}]
+                }
+            ],
+            "rules": [
+                {
+                    "if": {"op": "and", "terms": [
+                        {"op": "is", "variable": "x", "set": "pos"},
+                        {"op": "is", "variable": "y", "set": "pos"}
+                    ]},
+                    "then": {"kind": "linear", "intercept": 1.0, "coefficients": {"x": 2.0, "y": 3.0}}
+                }
+            ]
+        }),
+    )
+    .await;
+
+    assert!(result.converged);
+    let content = result.context.get(ContextKey::Strategies)[0].content();
+    assert!(content.contains("output"));
+}
+
+#[tokio::test]
+async fn tsukamoto_inference_produces_crisp_output() {
+    let result = run_with_input(
+        TsukamotoInferencePack,
+        serde_json::json!({
+            "inputs": {"quality": 0.6},
+            "variables": [
+                {
+                    "name": "quality",
+                    "sets": [
+                        {"name": "good", "function": {"kind": "right_shoulder", "start": 0.3, "end": 0.9}}
+                    ]
+                },
+                {
+                    "name": "score",
+                    "sets": [
+                        {"name": "high", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}
+                    ]
+                }
+            ],
+            "rules": [
+                {
+                    "id": "quality-to-score",
+                    "if": {"op": "is", "variable": "quality", "set": "good"},
+                    "then": {"variable": "score", "set": "high"}
+                }
+            ]
+        }),
+    )
+    .await;
+
+    assert!(result.converged);
+    let strategies = result.context.get(ContextKey::Strategies);
+    assert_eq!(strategies.len(), 1);
+    let content = strategies[0].content();
+    assert!(content.contains("output"));
+    assert!(content.contains("quality-to-score"));
+    assert!(content.contains("\"confidence\""));
 }

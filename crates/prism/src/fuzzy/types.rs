@@ -495,3 +495,310 @@ pub(super) fn evaluate_expression(
         FuzzyExpression::Not { term } => Ok(1.0 - evaluate_expression(term, memberships)?),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+    use super::*;
+
+    // ── MembershipFunction::evaluate ─────────────────────────────────────────
+
+    #[test]
+    fn triangular_peak_is_one() {
+        let mf = MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 };
+        assert!((mf.evaluate(0.5) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn triangular_rising_midpoint() {
+        let mf = MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 };
+        assert!((mf.evaluate(0.25) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn triangular_falling_midpoint() {
+        let mf = MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 };
+        assert!((mf.evaluate(0.75) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn triangular_boundaries_are_zero() {
+        let mf = MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 };
+        assert_eq!(mf.evaluate(0.0), 0.0);
+        assert_eq!(mf.evaluate(1.0), 0.0);
+        assert_eq!(mf.evaluate(-1.0), 0.0);
+    }
+
+    #[test]
+    fn trapezoidal_plateau_is_one() {
+        let mf = MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.3, upper_peak: 0.7, max: 1.0 };
+        assert_eq!(mf.evaluate(0.3), 1.0);
+        assert_eq!(mf.evaluate(0.5), 1.0);
+        assert_eq!(mf.evaluate(0.7), 1.0);
+    }
+
+    #[test]
+    fn trapezoidal_rising_ramp() {
+        let mf = MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.4, upper_peak: 0.6, max: 1.0 };
+        assert!((mf.evaluate(0.2) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trapezoidal_falling_ramp() {
+        let mf = MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.4, upper_peak: 0.6, max: 1.0 };
+        assert!((mf.evaluate(0.8) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn trapezoidal_boundaries_are_zero() {
+        let mf = MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.3, upper_peak: 0.7, max: 1.0 };
+        assert_eq!(mf.evaluate(0.0), 0.0);
+        assert_eq!(mf.evaluate(1.0), 0.0);
+    }
+
+    #[test]
+    fn left_shoulder_full_at_and_below_start() {
+        let mf = MembershipFunction::LeftShoulder { start: 0.3, end: 0.7 };
+        assert_eq!(mf.evaluate(0.0), 1.0);
+        assert_eq!(mf.evaluate(0.3), 1.0);
+    }
+
+    #[test]
+    fn left_shoulder_midpoint() {
+        let mf = MembershipFunction::LeftShoulder { start: 0.3, end: 0.7 };
+        assert!((mf.evaluate(0.5) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn left_shoulder_zero_at_and_beyond_end() {
+        let mf = MembershipFunction::LeftShoulder { start: 0.3, end: 0.7 };
+        assert_eq!(mf.evaluate(0.7), 0.0);
+        assert_eq!(mf.evaluate(1.0), 0.0);
+    }
+
+    #[test]
+    fn right_shoulder_zero_at_and_below_start() {
+        let mf = MembershipFunction::RightShoulder { start: 0.3, end: 0.7 };
+        assert_eq!(mf.evaluate(0.0), 0.0);
+        assert_eq!(mf.evaluate(0.3), 0.0);
+    }
+
+    #[test]
+    fn right_shoulder_midpoint() {
+        let mf = MembershipFunction::RightShoulder { start: 0.3, end: 0.7 };
+        assert!((mf.evaluate(0.5) - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn right_shoulder_full_at_and_beyond_end() {
+        let mf = MembershipFunction::RightShoulder { start: 0.3, end: 0.7 };
+        assert_eq!(mf.evaluate(0.7), 1.0);
+        assert_eq!(mf.evaluate(1.0), 1.0);
+    }
+
+    #[test]
+    fn gaussian_center_is_one() {
+        let mf = MembershipFunction::Gaussian { center: 0.5, sigma: 0.1 };
+        assert!((mf.evaluate(0.5) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn gaussian_one_sigma_decays() {
+        let mf = MembershipFunction::Gaussian { center: 0.0, sigma: 1.0 };
+        assert!((mf.evaluate(1.0) - (-0.5_f64).exp()).abs() < 1e-10);
+    }
+
+    // ── MembershipFunction::validate ─────────────────────────────────────────
+
+    #[test]
+    fn triangular_validate_ok() {
+        assert!(MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 }.validate().is_ok());
+    }
+
+    #[test]
+    fn triangular_validate_rejects_min_eq_peak() {
+        assert!(MembershipFunction::Triangular { min: 0.5, peak: 0.5, max: 1.0 }.validate().is_err());
+    }
+
+    #[test]
+    fn triangular_validate_rejects_peak_eq_max() {
+        assert!(MembershipFunction::Triangular { min: 0.0, peak: 1.0, max: 1.0 }.validate().is_err());
+    }
+
+    #[test]
+    fn trapezoidal_validate_equal_peaks_ok() {
+        assert!(MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.5, upper_peak: 0.5, max: 1.0 }.validate().is_ok());
+    }
+
+    #[test]
+    fn trapezoidal_validate_rejects_inverted_peaks() {
+        assert!(MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.7, upper_peak: 0.3, max: 1.0 }.validate().is_err());
+    }
+
+    #[test]
+    fn shoulder_validate_rejects_start_ge_end() {
+        assert!(MembershipFunction::LeftShoulder { start: 0.7, end: 0.3 }.validate().is_err());
+        assert!(MembershipFunction::RightShoulder { start: 0.5, end: 0.5 }.validate().is_err());
+    }
+
+    #[test]
+    fn gaussian_validate_rejects_zero_sigma() {
+        assert!(MembershipFunction::Gaussian { center: 0.5, sigma: 0.0 }.validate().is_err());
+    }
+
+    #[test]
+    fn gaussian_validate_rejects_negative_sigma() {
+        assert!(MembershipFunction::Gaussian { center: 0.5, sigma: -0.1 }.validate().is_err());
+    }
+
+    #[test]
+    fn validate_rejects_non_finite_bounds() {
+        assert!(MembershipFunction::Triangular { min: f64::NAN, peak: 0.5, max: 1.0 }.validate().is_err());
+        assert!(MembershipFunction::Gaussian { center: 0.0, sigma: f64::INFINITY }.validate().is_err());
+    }
+
+    // ── is_monotonic ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn shoulder_mfs_are_monotonic() {
+        assert!(MembershipFunction::LeftShoulder { start: 0.0, end: 1.0 }.is_monotonic());
+        assert!(MembershipFunction::RightShoulder { start: 0.0, end: 1.0 }.is_monotonic());
+    }
+
+    #[test]
+    fn non_shoulder_mfs_are_not_monotonic() {
+        assert!(!MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 }.is_monotonic());
+        assert!(!MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.3, upper_peak: 0.7, max: 1.0 }.is_monotonic());
+        assert!(!MembershipFunction::Gaussian { center: 0.5, sigma: 0.1 }.is_monotonic());
+    }
+
+    // ── inverse ───────────────────────────────────────────────────────────────
+
+    #[test]
+    fn left_shoulder_inverse_endpoints() {
+        let mf = MembershipFunction::LeftShoulder { start: 0.3, end: 0.7 };
+        assert!((mf.inverse(0.0).unwrap() - 0.7).abs() < 1e-10);
+        assert!((mf.inverse(1.0).unwrap() - 0.3).abs() < 1e-10);
+    }
+
+    #[test]
+    fn left_shoulder_inverse_midpoint() {
+        let mf = MembershipFunction::LeftShoulder { start: 0.3, end: 0.7 };
+        assert!((mf.inverse(0.5).unwrap() - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn right_shoulder_inverse_endpoints() {
+        let mf = MembershipFunction::RightShoulder { start: 0.3, end: 0.7 };
+        assert!((mf.inverse(0.0).unwrap() - 0.3).abs() < 1e-10);
+        assert!((mf.inverse(1.0).unwrap() - 0.7).abs() < 1e-10);
+    }
+
+    #[test]
+    fn right_shoulder_inverse_midpoint() {
+        let mf = MembershipFunction::RightShoulder { start: 0.3, end: 0.7 };
+        assert!((mf.inverse(0.5).unwrap() - 0.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn non_monotonic_inverse_returns_err() {
+        assert!(MembershipFunction::Triangular { min: 0.0, peak: 0.5, max: 1.0 }.inverse(0.5).is_err());
+        assert!(MembershipFunction::Trapezoidal { min: 0.0, lower_peak: 0.3, upper_peak: 0.7, max: 1.0 }.inverse(0.5).is_err());
+        assert!(MembershipFunction::Gaussian { center: 0.5, sigma: 0.1 }.inverse(0.5).is_err());
+    }
+
+    #[test]
+    fn inverse_rejects_out_of_range_target() {
+        let mf = MembershipFunction::LeftShoulder { start: 0.0, end: 1.0 };
+        assert!(mf.inverse(2.0).is_err());
+        assert!(mf.inverse(-0.1).is_err());
+        assert!(mf.inverse(f64::NAN).is_err());
+    }
+
+    // ── evaluate_expression ───────────────────────────────────────────────────
+
+    fn sample_memberships() -> BTreeMap<String, BTreeMap<String, f64>> {
+        let mut outer = BTreeMap::new();
+        let mut sets = BTreeMap::new();
+        sets.insert("hot".to_string(), 0.8);
+        sets.insert("cold".to_string(), 0.2);
+        outer.insert("temperature".to_string(), sets);
+        outer
+    }
+
+    #[test]
+    fn is_expression_returns_membership() {
+        let expr = FuzzyExpression::Is { variable: "temperature".to_string(), set: "hot".to_string() };
+        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.8).abs() < 1e-10);
+    }
+
+    #[test]
+    fn and_expression_returns_minimum() {
+        let expr = FuzzyExpression::And { terms: vec![
+            FuzzyExpression::Is { variable: "temperature".to_string(), set: "hot".to_string() },
+            FuzzyExpression::Is { variable: "temperature".to_string(), set: "cold".to_string() },
+        ]};
+        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.2).abs() < 1e-10);
+    }
+
+    #[test]
+    fn or_expression_returns_maximum() {
+        let expr = FuzzyExpression::Or { terms: vec![
+            FuzzyExpression::Is { variable: "temperature".to_string(), set: "hot".to_string() },
+            FuzzyExpression::Is { variable: "temperature".to_string(), set: "cold".to_string() },
+        ]};
+        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.8).abs() < 1e-10);
+    }
+
+    #[test]
+    fn not_expression_returns_complement() {
+        let expr = FuzzyExpression::Not { term: Box::new(
+            FuzzyExpression::Is { variable: "temperature".to_string(), set: "hot".to_string() },
+        )};
+        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.2).abs() < 1e-10);
+    }
+
+    #[test]
+    fn is_expression_missing_variable_errors() {
+        let expr = FuzzyExpression::Is { variable: "humidity".to_string(), set: "high".to_string() };
+        assert!(evaluate_expression(&expr, &sample_memberships()).is_err());
+    }
+
+    // ── FuzzyInferenceOutput::summary ─────────────────────────────────────────
+
+    #[test]
+    fn summary_with_memberships() {
+        let mut memberships = BTreeMap::new();
+        memberships.insert("comfort.high".to_string(), 0.75);
+        let output = FuzzyInferenceOutput {
+            input_memberships: BTreeMap::new(),
+            memberships,
+            activated_rules: vec![],
+            confidence: 0.75,
+            total_rules: 2,
+        };
+        let s = output.summary();
+        assert!(s.contains("2"));
+        assert!(s.contains("comfort.high"));
+    }
+
+    #[test]
+    fn summary_with_no_memberships() {
+        let output = FuzzyInferenceOutput {
+            input_memberships: BTreeMap::new(),
+            memberships: BTreeMap::new(),
+            activated_rules: vec![],
+            confidence: 0.0,
+            total_rules: 1,
+        };
+        assert!(output.summary().contains("no memberships fired"));
+    }
+
+    // ── FuzzyConsequent::key ──────────────────────────────────────────────────
+
+    #[test]
+    fn consequent_key_format() {
+        let c = FuzzyConsequent { variable: "foo".to_string(), set: "bar".to_string() };
+        assert_eq!(c.key(), "foo.bar");
+    }
+}

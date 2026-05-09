@@ -8,6 +8,7 @@ use prism::packs::{
     FuzzyInferencePack, RankingPack, RegressionPack, SegmentationPack, SimilarityPack,
     TrendDetectionPack,
 };
+use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 
 fn budget() -> Budget {
     Budget {
@@ -513,4 +514,97 @@ async fn descriptive_stats_single_value() {
     // Single value: mean = median = 42, std = 0
     assert!(content.contains("42"));
     assert!(content.contains("\"std_dev\":0"));
+}
+
+// ── Sugeno validation ─────────────────────────────────────────────────────────
+
+#[test]
+fn sugeno_rejects_empty_inputs() {
+    let input = serde_json::json!({
+        "inputs": {},
+        "variables": [{"name": "x", "sets": [{"name": "h", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}]}],
+        "rules": [{"if": {"op": "is", "variable": "x", "set": "h"}, "then": {"kind": "constant", "value": 1.0}}]
+    });
+    assert!(SugenoInferencePack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn sugeno_rejects_empty_rules() {
+    let input = serde_json::json!({
+        "inputs": {"x": 0.5},
+        "variables": [{"name": "x", "sets": [{"name": "h", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}]}],
+        "rules": []
+    });
+    assert!(SugenoInferencePack.validate_inputs(&input).is_err());
+}
+
+#[test]
+fn sugeno_rejects_linear_consequent_referencing_unknown_input() {
+    let input = serde_json::json!({
+        "inputs": {"x": 0.5},
+        "variables": [{"name": "x", "sets": [{"name": "h", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}]}],
+        "rules": [{
+            "if": {"op": "is", "variable": "x", "set": "h"},
+            "then": {"kind": "linear", "intercept": 0.0, "coefficients": {"z": 1.0}}
+        }]
+    });
+    assert!(SugenoInferencePack.validate_inputs(&input).is_err());
+}
+
+// ── Tsukamoto validation ──────────────────────────────────────────────────────
+
+#[test]
+fn tsukamoto_rejects_non_monotonic_consequent() {
+    let input = serde_json::json!({
+        "inputs": {"x": 0.5},
+        "variables": [
+            {"name": "x", "sets": [{"name": "h", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}]},
+            {"name": "y", "sets": [{"name": "peak", "function": {"kind": "triangular", "min": 0.0, "peak": 0.5, "max": 1.0}}]}
+        ],
+        "rules": [{"if": {"op": "is", "variable": "x", "set": "h"}, "then": {"variable": "y", "set": "peak"}}]
+    });
+    assert!(TsukamotoInferencePack.validate_inputs(&input).is_err());
+}
+
+// ── Garbage input ─────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn sugeno_garbage_input_converges_empty() {
+    run_with_garbage(SugenoInferencePack).await;
+}
+
+#[tokio::test]
+async fn tsukamoto_garbage_input_converges_empty() {
+    run_with_garbage(TsukamotoInferencePack).await;
+}
+
+// ── Idempotency ───────────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn sugeno_inference_idempotent() {
+    run_idempotent(
+        SugenoInferencePack,
+        serde_json::json!({
+            "inputs": {"speed": 80.0},
+            "variables": [{"name": "speed", "sets": [{"name": "fast", "function": {"kind": "right_shoulder", "start": 50.0, "end": 100.0}}]}],
+            "rules": [{"if": {"op": "is", "variable": "speed", "set": "fast"}, "then": {"kind": "constant", "value": 90.0}}]
+        }),
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn tsukamoto_inference_idempotent() {
+    run_idempotent(
+        TsukamotoInferencePack,
+        serde_json::json!({
+            "inputs": {"quality": 0.6},
+            "variables": [
+                {"name": "quality", "sets": [{"name": "good", "function": {"kind": "right_shoulder", "start": 0.3, "end": 0.9}}]},
+                {"name": "score", "sets": [{"name": "high", "function": {"kind": "right_shoulder", "start": 0.0, "end": 1.0}}]}
+            ],
+            "rules": [{"if": {"op": "is", "variable": "quality", "set": "good"}, "then": {"variable": "score", "set": "high"}}]
+        }),
+    )
+    .await;
 }
