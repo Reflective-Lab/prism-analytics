@@ -3,7 +3,7 @@ source: mixed
 ---
 # Milestones
 
-> See `~/dev/reflective-stack/bedrock-platform/EPIC.md` for the coarse-grained outcomes these milestones advance.
+> See `~/dev/reflective/stack/bedrock-platform/EPIC.md` for the coarse-grained outcomes these milestones advance.
 
 ---
 
