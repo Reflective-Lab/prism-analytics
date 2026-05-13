@@ -52,7 +52,11 @@ impl GaussianNaiveBayes {
             })
             .collect();
 
-        probabilities.sort_by(|a, b| b.probability.partial_cmp(&a.probability).unwrap_or(std::cmp::Ordering::Equal));
+        probabilities.sort_by(|a, b| {
+            b.probability
+                .partial_cmp(&a.probability)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let predicted = probabilities[0].class.clone();
         let confidence = probabilities[0].probability;

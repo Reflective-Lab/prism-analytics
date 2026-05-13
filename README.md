@@ -35,6 +35,8 @@ over promotion.
 - Training pipeline agents: dataset, validation, feature engineering,
   hyperparameter search, model training, evaluation, registry, monitoring,
   deployment decision, and sample inference.
+- Typed proposal provenance through `ProvenanceSource` / `PRISM_PROVENANCE`.
+- Suggestor-boundary tracing through `prism.suggestor.execute` spans.
 - Compile-fail tests that enforce Converge authority boundaries.
 
 ## Packs

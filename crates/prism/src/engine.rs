@@ -1,10 +1,12 @@
 // Copyright 2024-2026 Reflective Labs
 
 use anyhow::{Result, anyhow};
-use converge_pack::{AgentEffect, Context, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context, ContextKey, Suggestor};
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+
+use crate::provenance::{PRISM_PROVENANCE, suggestor_span};
 
 /// A fact content representing computed features.
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -105,16 +107,22 @@ impl Suggestor for FeatureAgent {
         ctx.has(ContextKey::Seeds) && !ctx.has(ContextKey::Proposals)
     }
 
-    async fn execute(&self, _ctx: &dyn Context) -> AgentEffect {
+    async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Seeds,
+            ContextKey::Proposals,
+            ctx.count(ContextKey::Seeds),
+        )
+        .entered();
         // 1. Compute features using Polars
         let features = match self.compute_features() {
             Ok(f) => f,
             Err(e) => {
-                return AgentEffect::with_proposal(ProposedFact::new(
+                return AgentEffect::with_proposal(PRISM_PROVENANCE.proposed_fact(
                     ContextKey::Diagnostic,
                     "feature-agent-error",
                     e.to_string(),
-                    self.name(),
                 ));
             }
         };
@@ -123,12 +131,8 @@ impl Suggestor for FeatureAgent {
         let content = serde_json::to_string(&features).unwrap_or_default();
 
         // 3. Propose the features
-        let proposal = ProposedFact::new(
-            ContextKey::Proposals,
-            "features-001",
-            content,
-            "polars-engine",
-        );
+        let proposal =
+            PRISM_PROVENANCE.proposed_fact(ContextKey::Proposals, "features-001", content);
 
         // Note: In a real agent, we might emit a Fact directly if trusted, or a ProposedFact.
         // converge_core usually requires TryFrom implementation or specific flow.

@@ -9,16 +9,18 @@ use std::fs::{File, create_dir_all};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use crate::provenance::{PRISM_PROVENANCE, suggestor_span};
+
 const DATASET_URL: &str = "https://huggingface.co/datasets/gvlassis/california_housing/resolve/refs%2Fconvert%2Fparquet/default/train/0000.parquet";
 const TARGET_COLUMN: &str = "median_house_value";
 
 fn proposal(
-    provenance: &str,
+    _agent_name: &str,
     key: ContextKey,
     id: impl Into<String>,
     content: impl Into<String>,
 ) -> ProposedFact {
-    ProposedFact::new(key, ProposalId::new(id.into()), content, provenance)
+    PRISM_PROVENANCE.proposed_fact(key, ProposalId::new(id.into()), content)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -208,6 +210,13 @@ impl Suggestor for DataValidationAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Signals,
+            ContextKey::Signals,
+            ctx.count(ContextKey::Signals),
+        )
+        .entered();
         let split = match read_latest_split_from_ctx(ctx) {
             Ok(split) => split,
             Err(err) => {
@@ -306,6 +315,13 @@ impl Suggestor for FeatureEngineeringAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Signals,
+            ContextKey::Constraints,
+            ctx.count(ContextKey::Signals),
+        )
+        .entered();
         let split = match read_latest_split_from_ctx(ctx) {
             Ok(split) => split,
             Err(err) => {
@@ -404,6 +420,13 @@ impl Suggestor for HyperparameterSearchAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Signals,
+            ContextKey::Evaluations,
+            ctx.count(ContextKey::Signals),
+        )
+        .entered();
         let split = match read_latest_split_from_ctx(ctx) {
             Ok(split) => split,
             Err(err) => {
@@ -493,6 +516,13 @@ impl Suggestor for DatasetAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Seeds,
+            ContextKey::Signals,
+            ctx.count(ContextKey::Seeds),
+        )
+        .entered();
         if let Err(err) = create_dir_all(&self.data_dir) {
             return AgentEffect::with_proposal(proposal(
                 self.name(),
@@ -635,6 +665,13 @@ impl Suggestor for ModelTrainingAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Signals,
+            ContextKey::Strategies,
+            ctx.count(ContextKey::Signals),
+        )
+        .entered();
         let split = match read_latest_split_from_ctx(ctx) {
             Ok(split) => split,
             Err(err) => {
@@ -779,6 +816,13 @@ impl Suggestor for ModelRegistryAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Strategies,
+            ContextKey::Strategies,
+            ctx.count(ContextKey::Strategies),
+        )
+        .entered();
         let meta = match read_latest_model_meta_from_ctx(ctx) {
             Ok(meta) => meta,
             Err(err) => {
@@ -844,6 +888,13 @@ impl Suggestor for MonitoringAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Evaluations,
+            ContextKey::Evaluations,
+            ctx.count(ContextKey::Evaluations),
+        )
+        .entered();
         let report = match latest_evaluation_report(ctx, 0) {
             Some(report) => report,
             None => return AgentEffect::empty(),
@@ -903,6 +954,13 @@ impl Suggestor for DeploymentAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Evaluations,
+            ContextKey::Strategies,
+            ctx.count(ContextKey::Evaluations),
+        )
+        .entered();
         let report = match latest_evaluation_report(ctx, 0) {
             Some(report) => report,
             None => return AgentEffect::empty(),
@@ -955,6 +1013,13 @@ impl Suggestor for ModelEvaluationAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Signals,
+            ContextKey::Evaluations,
+            ctx.count(ContextKey::Signals),
+        )
+        .entered();
         let split = match read_latest_split_from_ctx(ctx) {
             Ok(split) => split,
             Err(err) => {
@@ -1090,6 +1155,13 @@ impl Suggestor for SampleInferenceAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Signals,
+            ContextKey::Hypotheses,
+            ctx.count(ContextKey::Signals),
+        )
+        .entered();
         let split = match read_latest_split_from_ctx(ctx) {
             Ok(split) => split,
             Err(err) => {
@@ -1683,7 +1755,7 @@ mod tests {
     #[test]
     fn proposal_helper_builds_correct_fact() {
         let p = proposal("my-agent", ContextKey::Diagnostic, "id-1", "content-1");
-        assert_eq!(p.provenance, "my-agent");
+        assert_eq!(p.provenance, "prism");
         assert_eq!(p.key, ContextKey::Diagnostic);
         assert_eq!(p.id, "id-1");
         assert_eq!(p.content, "content-1");

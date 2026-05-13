@@ -16,10 +16,13 @@ whose Rust library name is `prism`.
 - Analytics packs for anomaly detection, classification, descriptive stats,
   forecasting, fuzzy inference (Mamdani + Sugeno + Tsukamoto), ranking,
   regression, segmentation, similarity, and trend detection
+- `ProvenanceSource` and `PRISM_PROVENANCE` for typed proposal provenance
+  before crossing into `converge-pack::ProposedFact`
+- `prism.suggestor.execute` tracing spans on analytics suggestor execution
 
 ## Contract dependencies
 
-- `converge-pack` — `Pack`, `ProposedPlan`, `ProblemSpec`
+- `converge-pack` — `Pack`, `ProposedFact`, `ProposedPlan`, `ProblemSpec`
 - `converge-optimization` — pack invariants and gate evaluation helpers
 - `converge-storage` — optional storage feature
 

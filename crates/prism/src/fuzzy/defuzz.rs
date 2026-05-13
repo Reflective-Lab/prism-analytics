@@ -117,11 +117,25 @@ pub fn defuzzify_mamdani(
     }
 }
 
+pub fn weighted_average(rules: &[(f64, f64)]) -> Option<f64> {
+    let den: f64 = rules.iter().map(|(strength, _)| *strength).sum();
+    if den == 0.0 || !den.is_finite() {
+        return None;
+    }
+    let num: f64 = rules.iter().map(|(strength, value)| strength * value).sum();
+    if !num.is_finite() {
+        return None;
+    }
+    Some(num / den)
+}
+
 #[cfg(test)]
 mod tests {
+    use super::{DefuzzMethod, Domain, defuzzify_mamdani, weighted_average};
+    use crate::fuzzy::{
+        ActivatedRule, FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction,
+    };
     use std::collections::BTreeMap;
-    use super::{defuzzify_mamdani, weighted_average, DefuzzMethod, Domain};
-    use crate::fuzzy::{ActivatedRule, FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction};
 
     fn make_output(key: &str, strength: f64) -> FuzzyInferenceOutput {
         let mut memberships = BTreeMap::new();
@@ -146,7 +160,11 @@ mod tests {
             name: "out".to_string(),
             sets: vec![FuzzySet {
                 name: "mid".to_string(),
-                function: MembershipFunction::Triangular { min: 0.0, peak: 50.0, max: 100.0 },
+                function: MembershipFunction::Triangular {
+                    min: 0.0,
+                    peak: 50.0,
+                    max: 100.0,
+                },
             }],
         }]
     }
@@ -156,19 +174,46 @@ mod tests {
     #[test]
     fn domain_invalid_min_ge_max_returns_none() {
         let d = Domain::new(100.0, 0.0, 100);
-        assert!(defuzzify_mamdani(&make_output("out.mid", 1.0), &sym_triangle_vars(), "out", d, DefuzzMethod::Centroid).is_none());
+        assert!(
+            defuzzify_mamdani(
+                &make_output("out.mid", 1.0),
+                &sym_triangle_vars(),
+                "out",
+                d,
+                DefuzzMethod::Centroid
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn domain_invalid_zero_steps_returns_none() {
         let d = Domain::new(0.0, 100.0, 0);
-        assert!(defuzzify_mamdani(&make_output("out.mid", 1.0), &sym_triangle_vars(), "out", d, DefuzzMethod::Centroid).is_none());
+        assert!(
+            defuzzify_mamdani(
+                &make_output("out.mid", 1.0),
+                &sym_triangle_vars(),
+                "out",
+                d,
+                DefuzzMethod::Centroid
+            )
+            .is_none()
+        );
     }
 
     #[test]
     fn domain_invalid_non_finite_returns_none() {
         let d = Domain::new(f64::NAN, 100.0, 100);
-        assert!(defuzzify_mamdani(&make_output("out.mid", 1.0), &sym_triangle_vars(), "out", d, DefuzzMethod::Centroid).is_none());
+        assert!(
+            defuzzify_mamdani(
+                &make_output("out.mid", 1.0),
+                &sym_triangle_vars(),
+                "out",
+                d,
+                DefuzzMethod::Centroid
+            )
+            .is_none()
+        );
     }
 
     // ── Edge cases ────────────────────────────────────────────────────────────
@@ -176,14 +221,26 @@ mod tests {
     #[test]
     fn unknown_output_variable_returns_none() {
         let output = make_output("out.mid", 0.8);
-        let result = defuzzify_mamdani(&output, &sym_triangle_vars(), "nonexistent", Domain::new(0.0, 100.0, 100), DefuzzMethod::Centroid);
+        let result = defuzzify_mamdani(
+            &output,
+            &sym_triangle_vars(),
+            "nonexistent",
+            Domain::new(0.0, 100.0, 100),
+            DefuzzMethod::Centroid,
+        );
         assert!(result.is_none());
     }
 
     #[test]
     fn zero_strength_consequent_returns_none() {
         let output = make_output("out.mid", 0.0);
-        let result = defuzzify_mamdani(&output, &sym_triangle_vars(), "out", Domain::new(0.0, 100.0, 100), DefuzzMethod::Centroid);
+        let result = defuzzify_mamdani(
+            &output,
+            &sym_triangle_vars(),
+            "out",
+            Domain::new(0.0, 100.0, 100),
+            DefuzzMethod::Centroid,
+        );
         assert!(result.is_none());
     }
 
@@ -191,7 +248,14 @@ mod tests {
 
     fn sym_result(method: DefuzzMethod) -> f64 {
         let output = make_output("out.mid", 1.0);
-        defuzzify_mamdani(&output, &sym_triangle_vars(), "out", Domain::new(0.0, 100.0, 1000), method).unwrap()
+        defuzzify_mamdani(
+            &output,
+            &sym_triangle_vars(),
+            "out",
+            Domain::new(0.0, 100.0, 1000),
+            method,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -235,16 +299,4 @@ mod tests {
     fn weighted_average_zero_den_returns_none() {
         assert!(weighted_average(&[(0.0, 10.0)]).is_none());
     }
-}
-
-pub fn weighted_average(rules: &[(f64, f64)]) -> Option<f64> {
-    let den: f64 = rules.iter().map(|(strength, _)| *strength).sum();
-    if den == 0.0 || !den.is_finite() {
-        return None;
-    }
-    let num: f64 = rules.iter().map(|(strength, value)| strength * value).sum();
-    if !num.is_finite() {
-        return None;
-    }
-    Some(num / den)
 }

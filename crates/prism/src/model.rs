@@ -1,12 +1,13 @@
 // Copyright 2024-2026 Reflective Labs
 
 use crate::engine::FeatureVector;
+use crate::provenance::{PRISM_PROVENANCE, suggestor_span};
 use burn::{
     nn::{Linear, LinearConfig, Relu},
     prelude::*,
     tensor::{Tensor, backend::Backend},
 };
-use converge_pack::{AgentEffect, Context, ContextKey, ProposedFact, Suggestor};
+use converge_pack::{AgentEffect, Context, ContextKey, Suggestor};
 
 // Re-defining for now if not public in engine, strictly we should move to lib or common
 // But for this example we assume we can deserialize into this struct.
@@ -81,8 +82,15 @@ impl Suggestor for InferenceAgent {
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let _span = suggestor_span(
+            self.name(),
+            ContextKey::Proposals,
+            ContextKey::Hypotheses,
+            ctx.count(ContextKey::Proposals),
+        )
+        .entered();
         // 1. Find the feature proposal
-        // In reality, filtered by provenance "polars-engine"
+        // In reality, filtered by typed Prism provenance plus feature metadata.
         let _proposals = ctx.get(ContextKey::Proposals); // wait, ctx.get returns Fact, but proposals are ProposedFacts?
         // Ah, ctx.get(ContextKey) returns FACTs (promoted).
         // If FeatureAgent emits PROPOSALS, they are in `ContextKey::Proposals`?
@@ -140,11 +148,10 @@ impl Suggestor for InferenceAgent {
 
         let hypo_content = format!("Prediction: {:.4} (based on {})", prediction, facts[0].id());
 
-        let hypothesis = ProposedFact::new(
+        let hypothesis = PRISM_PROVENANCE.proposed_fact(
             ContextKey::Hypotheses,
             format!("hypo-{}", facts[0].id()),
             hypo_content,
-            self.name(),
         );
 
         AgentEffect::with_proposal(hypothesis)

@@ -30,6 +30,7 @@ pub mod fuzzy;
 pub mod ingest;
 pub mod model;
 pub mod packs;
+pub mod provenance;
 #[cfg(feature = "storage")]
 pub mod storage;
 pub mod suggestor;
@@ -42,6 +43,7 @@ pub use packs::{
     FuzzyInferencePack, NaiveBayesPack, RankingPack, RegressionPack, SegmentationPack,
     SimilarityPack, TrendDetectionPack,
 };
+pub use provenance::{PRISM_PROVENANCE, ProvenanceSource, UnknownProvenanceSource};
 pub use training::{
     DataValidationAgent, DatasetAgent, DeploymentAgent, FeatureEngineeringAgent,
     HyperparameterSearchAgent, ModelEvaluationAgent, ModelRegistryAgent, ModelTrainingAgent,

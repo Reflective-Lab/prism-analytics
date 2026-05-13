@@ -11,16 +11,18 @@ use prism::fuzzy::{
     weighted_average,
 };
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
-use prism::packs::naive_bayes::{ClassDef, GaussianNaiveBayes, GaussianParams, NaiveBayesInput};
-use prism::packs::trend_detection::{MovingAverageTrendSolver, TrendDetectionInput, TrendDirection};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
 use prism::packs::descriptive_stats::{DescriptiveStatsInput, DescriptiveStatsSolver};
 use prism::packs::forecasting::{ExponentialSmoothingSolver, ForecastingInput};
+use prism::packs::naive_bayes::{ClassDef, GaussianNaiveBayes, GaussianParams, NaiveBayesInput};
 use prism::packs::ranking::{RankItem, RankingInput, WeightedScoringSolver};
 use prism::packs::regression::{LinearRegressionSolver, RegressionInput};
 use prism::packs::segmentation::{KMeansSolver, SegmentationInput};
 use prism::packs::similarity::{
     DistanceMetric, PairwiseSimilaritySolver, SimilarityInput, SimilarityItem,
+};
+use prism::packs::trend_detection::{
+    MovingAverageTrendSolver, TrendDetectionInput, TrendDirection,
 };
 
 fn spec() -> ProblemSpec {
@@ -1281,11 +1283,18 @@ fn trend_pure_rising_hand_computed() {
     //
     // slope_threshold = mean(10,10,10) × 0.5 = 5.0
     // All windows Rising (10.0 > 5.0) → 1 segment, no changepoints.
-    let input = TrendDetectionInput { values: vec![10.0, 20.0, 30.0, 40.0, 50.0], window: 3, sensitivity: 0.5 };
+    let input = TrendDetectionInput {
+        values: vec![10.0, 20.0, 30.0, 40.0, 50.0],
+        window: 3,
+        sensitivity: 0.5,
+    };
     let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
 
     assert_eq!(output.overall_direction, TrendDirection::Rising);
-    assert!((output.overall_slope - 10.0).abs() < 1e-9, "overall slope = 10.0");
+    assert!(
+        (output.overall_slope - 10.0).abs() < 1e-9,
+        "overall slope = 10.0"
+    );
     assert_eq!(output.segments.len(), 1);
     assert_eq!(output.segments[0].direction, TrendDirection::Rising);
     assert!((output.segments[0].slope - 10.0).abs() < 1e-9);
@@ -1301,7 +1310,11 @@ fn trend_pure_falling_hand_computed() {
     // Symmetric to rising: each window slope = -10.0, overall slope = -10.0.
     // slope_threshold = 10.0 × 0.5 = 5.0
     // All windows Falling (-10.0 < -5.0) → 1 segment, no changepoints.
-    let input = TrendDetectionInput { values: vec![50.0, 40.0, 30.0, 20.0, 10.0], window: 3, sensitivity: 0.5 };
+    let input = TrendDetectionInput {
+        values: vec![50.0, 40.0, 30.0, 20.0, 10.0],
+        window: 3,
+        sensitivity: 0.5,
+    };
     let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
 
     assert_eq!(output.overall_direction, TrendDirection::Falling);
@@ -1320,7 +1333,11 @@ fn trend_stable_hand_computed() {
     // slope_threshold = mean(0,0,0) × 1.0 = 0, clamped to 1e-10.
     // classify_slope(0.0, 1e-10) → Stable.
     // 1 segment: Stable, slope = 0.0.  No changepoints.
-    let input = TrendDetectionInput { values: vec![5.0, 5.0, 5.0, 5.0, 5.0], window: 3, sensitivity: 1.0 };
+    let input = TrendDetectionInput {
+        values: vec![5.0, 5.0, 5.0, 5.0, 5.0],
+        window: 3,
+        sensitivity: 1.0,
+    };
     let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
 
     assert_eq!(output.overall_direction, TrendDirection::Stable);
@@ -1359,11 +1376,18 @@ fn trend_rise_then_fall_hand_computed() {
     //     seg_start = 3, seg_direction = Falling
     //   i=3: Falling              → same, accumulate
     //   end: segment {start:3, end:4, Falling, avg_slope=−10.0}
-    let input = TrendDetectionInput { values: vec![10.0, 20.0, 30.0, 20.0, 10.0], window: 2, sensitivity: 0.9 };
+    let input = TrendDetectionInput {
+        values: vec![10.0, 20.0, 30.0, 20.0, 10.0],
+        window: 2,
+        sensitivity: 0.9,
+    };
     let (output, _) = MovingAverageTrendSolver.solve(&input, &spec()).unwrap();
 
     assert_eq!(output.overall_direction, TrendDirection::Stable);
-    assert!(output.overall_slope.abs() < 1e-9, "symmetric series → slope = 0");
+    assert!(
+        output.overall_slope.abs() < 1e-9,
+        "symmetric series → slope = 0"
+    );
 
     assert_eq!(output.segments.len(), 2, "one rising + one falling segment");
     assert_eq!(output.segments[0].direction, TrendDirection::Rising);
@@ -1412,16 +1436,28 @@ fn naive_bayes_two_class_hand_computed() {
                 name: "A".into(),
                 prior: 0.5,
                 feature_params: vec![
-                    GaussianParams { mean: 0.0, std_dev: 1.0 },
-                    GaussianParams { mean: 0.0, std_dev: 1.0 },
+                    GaussianParams {
+                        mean: 0.0,
+                        std_dev: 1.0,
+                    },
+                    GaussianParams {
+                        mean: 0.0,
+                        std_dev: 1.0,
+                    },
                 ],
             },
             ClassDef {
                 name: "B".into(),
                 prior: 0.5,
                 feature_params: vec![
-                    GaussianParams { mean: 3.0, std_dev: 1.0 },
-                    GaussianParams { mean: 3.0, std_dev: 1.0 },
+                    GaussianParams {
+                        mean: 3.0,
+                        std_dev: 1.0,
+                    },
+                    GaussianParams {
+                        mean: 3.0,
+                        std_dev: 1.0,
+                    },
                 ],
             },
         ],
@@ -1465,12 +1501,18 @@ fn naive_bayes_symmetric_priors_favors_closer_mean() {
             ClassDef {
                 name: "far".into(),
                 prior: 0.5,
-                feature_params: vec![GaussianParams { mean: 0.0, std_dev: 1.0 }],
+                feature_params: vec![GaussianParams {
+                    mean: 0.0,
+                    std_dev: 1.0,
+                }],
             },
             ClassDef {
                 name: "near".into(),
                 prior: 0.5,
-                feature_params: vec![GaussianParams { mean: 1.0, std_dev: 1.0 }],
+                feature_params: vec![GaussianParams {
+                    mean: 1.0,
+                    std_dev: 1.0,
+                }],
             },
         ],
         features: vec![0.6],
@@ -1478,7 +1520,10 @@ fn naive_bayes_symmetric_priors_favors_closer_mean() {
 
     let (output, _) = GaussianNaiveBayes.solve(&input, &spec()).unwrap();
     assert_eq!(output.predicted, "near");
-    assert!(output.confidence > 0.5, "near should win with > 50% probability");
+    assert!(
+        output.confidence > 0.5,
+        "near should win with > 50% probability"
+    );
 }
 
 #[test]
@@ -1490,12 +1535,18 @@ fn naive_bayes_prior_breaks_equidistant_tie() {
             ClassDef {
                 name: "strong-prior".into(),
                 prior: 0.9,
-                feature_params: vec![GaussianParams { mean: 0.0, std_dev: 1.0 }],
+                feature_params: vec![GaussianParams {
+                    mean: 0.0,
+                    std_dev: 1.0,
+                }],
             },
             ClassDef {
                 name: "weak-prior".into(),
                 prior: 0.1,
-                feature_params: vec![GaussianParams { mean: 1.0, std_dev: 1.0 }],
+                feature_params: vec![GaussianParams {
+                    mean: 1.0,
+                    std_dev: 1.0,
+                }],
             },
         ],
         features: vec![0.5],

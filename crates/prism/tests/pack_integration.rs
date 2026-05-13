@@ -2,12 +2,12 @@
 
 use converge_kernel::{Budget, ContextKey, ContextState, ConvergeResult, Engine};
 use converge_pack::PackSuggestor;
+use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
     FuzzyInferencePack, NaiveBayesPack, RankingPack, RegressionPack, SegmentationPack,
     SimilarityPack, TrendDetectionPack,
 };
-use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 
 fn budget() -> Budget {
     Budget {
