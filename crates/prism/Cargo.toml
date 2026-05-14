@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
-description = "Analytics and ML pipeline for Converge agents. Implements feature extraction, inference, training, and monitoring suggestors."
+description = "Closed-form analytics and inference for Converge agents: feature extraction, inference packs, and fuzzy inference. Training-pipeline concerns live in converge-crucible-models."
 
 [lib]
 name = "prism"
@@ -22,8 +22,6 @@ serde.workspace = true
 serde_json.workspace = true
 proptest.workspace = true
 rand.workspace = true
-reqwest.workspace = true
-bincode.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
@@ -33,9 +31,6 @@ converge-pack.workspace = true
 # Converge platform dependencies
 converge-optimization.workspace = true
 
-# Object storage (optional)
-converge-storage = { workspace = true, optional = true }
-
 [dev-dependencies]
 converge-kernel.workspace = true
 tempfile.workspace = true
@@ -43,7 +38,6 @@ trybuild.workspace = true
 
 [features]
 default = []
-storage = ["dep:converge-storage"]
 excel = ["dep:calamine"]
 
 [lints]

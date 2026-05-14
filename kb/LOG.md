@@ -7,6 +7,7 @@ Append an entry on every kb/ change. Format mirrors converge.
 
 | Date | File | Change | Author |
 |------|------|--------|--------|
+| 2026-05-14 | src/lib.rs, Cargo.toml, CHANGELOG.md | Lifted training pipeline (ingest, storage, training modules + DatasetAgent / HyperparameterSearchAgent / ModelTrainingAgent / etc.) into converge-crucible-models, restoring the stated prism / crucible boundary. Dropped reqwest, bincode, and converge-storage deps; removed the storage feature flag. BREAKING. | mixed |
 | 2026-05-13 | Architecture/Surface.md | Document Prism suggestor-boundary tracing spans | llm |
 | 2026-05-13 | Architecture/Surface.md | Document typed Prism proposal provenance adapter | llm |
 | 2026-05-09 | Architecture/Fuzzy Logic Capability.md | Tsukamoto FIS shipped — moved from out-of-scope to in-scope, added Tsukamoto niche statement, monotonic-MF constraints documented | mixed |

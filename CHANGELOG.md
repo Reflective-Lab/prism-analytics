@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Removed (BREAKING)
+
+- Lifted the training pipeline and supporting data plumbing out of prism into
+  `converge-crucible-models`, restoring the stated prism / crucible boundary
+  (prism = closed-form inference with hand-authored rules; crucible = trained
+  models with a Burn-driven training pipeline). The following modules and
+  public items are gone from prism:
+  - `prism::ingest` (multi-format CSV / TSV / Parquet / Excel readers).
+  - `prism::storage` (Polars ⇄ `converge-storage::ObjectStore` bridge, formerly
+    behind the `storage` feature).
+  - `prism::training` and all its agents and types: `DatasetAgent`,
+    `DataValidationAgent`, `FeatureEngineeringAgent`, `HyperparameterSearchAgent`,
+    `ModelTrainingAgent`, `ModelEvaluationAgent`, `ModelRegistryAgent`,
+    `MonitoringAgent`, `DeploymentAgent`, `SampleInferenceAgent`, plus
+    `TrainingPlan`, `DatasetSplit`, `HyperparameterSearchPlan`, `EvaluationReport`,
+    `ModelRegistryRecord`, `DeploymentDecision`, and friends.
+  - The `storage` feature is removed; the `reqwest`, `bincode`, and
+    `converge-storage` dependencies are dropped.
+  - The hard-coded California-housing demo dataset URL went with the lift —
+    it was a placeholder that landed in prism because crucible was a stub.
+- Consumers of the training pipeline should depend on
+  `converge-crucible-models` instead. The agent and type names are unchanged.
+
 ### Added
 
 - `prism::fuzzy` reusable fuzzy logic capability plus `FuzzyInferencePack` for

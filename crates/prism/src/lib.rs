@@ -3,10 +3,14 @@
 
 //! # prism
 //!
-//! ML and analytics capabilities as Suggestors for the Converge Engine.
+//! Closed-form analytics and inference Suggestors for the Converge Engine.
 //!
-//! Access through [`FeatureAgent`] and the training pipeline agents.
-//! Register them in a formation for data-driven convergence.
+//! Prism owns hand-authored, deterministic inference: feature extraction,
+//! inference packs, and fuzzy inference (Mamdani / Sugeno / Tsukamoto).
+//! Training-pipeline concerns — dataset loading, train/val split,
+//! hyperparameter search, model fitting, registry, and deployment —
+//! live in `crucible-models`. The boundary is: prism never fits, crucible
+//! never owns expert rules.
 //!
 //! ## Usage
 //!
@@ -21,20 +25,14 @@
 //! - [`FeatureAgent`] — Polars-based feature extraction
 //! - [`InferenceAgent`] — Burn-based inference over feature vectors
 //! - [`FuzzyInferencePack`] — fuzzy membership and rule inference
-//! - Training pipeline suggestors — dataset, validation, feature engineering,
-//!   training, evaluation, registry, monitoring, deployment
 
 pub mod batch;
 pub mod engine;
 pub mod fuzzy;
-pub mod ingest;
 pub mod model;
 pub mod packs;
 pub mod provenance;
-#[cfg(feature = "storage")]
-pub mod storage;
 pub mod suggestor;
-pub mod training;
 
 pub use engine::FeatureAgent;
 pub use model::InferenceAgent;
@@ -44,8 +42,3 @@ pub use packs::{
     SimilarityPack, TrendDetectionPack,
 };
 pub use provenance::{PRISM_PROVENANCE, ProvenanceSource, UnknownProvenanceSource};
-pub use training::{
-    DataValidationAgent, DatasetAgent, DeploymentAgent, FeatureEngineeringAgent,
-    HyperparameterSearchAgent, ModelEvaluationAgent, ModelRegistryAgent, ModelTrainingAgent,
-    MonitoringAgent, SampleInferenceAgent,
-};
