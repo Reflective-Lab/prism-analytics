@@ -1,7 +1,7 @@
 // Copyright 2024-2026 Reflective Labs
 
 use crate::engine::FeatureVector;
-use crate::provenance::{PRISM_PROVENANCE, suggestor_span};
+use crate::provenance::PRISM_PROVENANCE;
 use burn::{
     nn::{Linear, LinearConfig, Relu},
     prelude::*,
@@ -81,14 +81,11 @@ impl Suggestor for InferenceAgent {
         ctx.has(ContextKey::Proposals) && !ctx.has(ContextKey::Hypotheses)
     }
 
+    fn provenance(&self) -> &'static str {
+        PRISM_PROVENANCE.as_str()
+    }
+
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
-        let _span = suggestor_span(
-            self.name(),
-            ContextKey::Proposals,
-            ContextKey::Hypotheses,
-            ctx.count(ContextKey::Proposals),
-        )
-        .entered();
         // 1. Find the feature proposal
         // In reality, filtered by typed Prism provenance plus feature metadata.
         let _proposals = ctx.get(ContextKey::Proposals); // wait, ctx.get returns Fact, but proposals are ProposedFacts?

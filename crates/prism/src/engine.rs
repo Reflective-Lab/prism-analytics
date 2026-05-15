@@ -8,7 +8,7 @@ use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-use crate::provenance::{PRISM_PROVENANCE, suggestor_span};
+use crate::provenance::PRISM_PROVENANCE;
 
 /// Typed payload representing computed features.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -115,14 +115,11 @@ impl Suggestor for FeatureAgent {
         ctx.has(ContextKey::Seeds) && !ctx.has(ContextKey::Proposals)
     }
 
-    async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
-        let _span = suggestor_span(
-            self.name(),
-            ContextKey::Seeds,
-            ContextKey::Proposals,
-            ctx.count(ContextKey::Seeds),
-        )
-        .entered();
+    fn provenance(&self) -> &'static str {
+        PRISM_PROVENANCE.as_str()
+    }
+
+    async fn execute(&self, _ctx: &dyn Context) -> AgentEffect {
         // 1. Compute features using Polars
         let features = match self.compute_features() {
             Ok(f) => f,
