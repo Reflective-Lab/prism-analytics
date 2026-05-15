@@ -1,7 +1,9 @@
 // Copyright 2024-2026 Reflective Labs
 
 use anyhow::{Result, anyhow};
-use converge_pack::{AgentEffect, Context, ContextKey, FactPayload, Suggestor, TextPayload};
+use converge_pack::{
+    AgentEffect, Context, ContextKey, FactPayload, ProvenanceSource, Suggestor, TextPayload,
+};
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

@@ -7,7 +7,7 @@ use burn::{
     prelude::*,
     tensor::{Tensor, backend::Backend},
 };
-use converge_pack::{AgentEffect, Context, ContextKey, Suggestor, TextPayload};
+use converge_pack::{AgentEffect, Context, ContextKey, ProvenanceSource, Suggestor, TextPayload};
 
 // Re-defining for now if not public in engine, strictly we should move to lib or common
 // But for this example we assume we can deserialize into this struct.

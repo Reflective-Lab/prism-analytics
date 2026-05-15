@@ -41,4 +41,4 @@ pub use packs::{
     FuzzyInferencePack, NaiveBayesPack, RankingPack, RegressionPack, SegmentationPack,
     SimilarityPack, TrendDetectionPack,
 };
-pub use provenance::{PRISM_PROVENANCE, ProvenanceSource, UnknownProvenanceSource};
+pub use provenance::{PRISM_PROVENANCE, Prism, prism_execution_identity};
