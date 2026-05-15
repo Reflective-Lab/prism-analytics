@@ -1,18 +1,24 @@
 // Copyright 2024-2026 Reflective Labs
 
 use anyhow::{Result, anyhow};
-use converge_pack::{AgentEffect, Context, ContextKey, Suggestor};
+use converge_pack::{AgentEffect, Context, ContextKey, FactPayload, Suggestor, TextPayload};
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 use crate::provenance::{PRISM_PROVENANCE, suggestor_span};
 
-/// A fact content representing computed features.
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+/// Typed payload representing computed features.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct FeatureVector {
     pub data: Vec<f32>,
     pub shape: [usize; 2],
+}
+
+impl FactPayload for FeatureVector {
+    const FAMILY: &'static str = "prism.feature-vector";
+    const VERSION: u16 = 1;
 }
 
 impl FeatureVector {
@@ -122,17 +128,14 @@ impl Suggestor for FeatureAgent {
                 return AgentEffect::with_proposal(PRISM_PROVENANCE.proposed_fact(
                     ContextKey::Diagnostic,
                     "feature-agent-error",
-                    e.to_string(),
+                    TextPayload::new(e.to_string()),
                 ));
             }
         };
 
-        // 2. Serialize to Fact content
-        let content = serde_json::to_string(&features).unwrap_or_default();
-
-        // 3. Propose the features
+        // 2. Propose the features
         let proposal =
-            PRISM_PROVENANCE.proposed_fact(ContextKey::Proposals, "features-001", content);
+            PRISM_PROVENANCE.proposed_fact(ContextKey::Proposals, "features-001", features);
 
         // Note: In a real agent, we might emit a Fact directly if trusted, or a ProposedFact.
         // converge_core usually requires TryFrom implementation or specific flow.

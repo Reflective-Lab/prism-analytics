@@ -7,7 +7,7 @@ use burn::{
     prelude::*,
     tensor::{Tensor, backend::Backend},
 };
-use converge_pack::{AgentEffect, Context, ContextKey, Suggestor};
+use converge_pack::{AgentEffect, Context, ContextKey, Suggestor, TextPayload};
 
 // Re-defining for now if not public in engine, strictly we should move to lib or common
 // But for this example we assume we can deserialize into this struct.
@@ -124,12 +124,10 @@ impl Suggestor for InferenceAgent {
             return AgentEffect::empty();
         }
 
-        let fact_content = &facts[0].content();
-
-        // 2. Deserialize features
-        let features: FeatureVector = match serde_json::from_str(fact_content) {
-            Ok(f) => f,
-            Err(_) => return AgentEffect::empty(),
+        // 2. Read typed features
+        let features = match facts[0].payload::<FeatureVector>() {
+            Some(features) => features,
+            None => return AgentEffect::empty(),
         };
 
         // 3. Run Inference (Burn)
@@ -151,7 +149,7 @@ impl Suggestor for InferenceAgent {
         let hypothesis = PRISM_PROVENANCE.proposed_fact(
             ContextKey::Hypotheses,
             format!("hypo-{}", facts[0].id()),
-            hypo_content,
+            TextPayload::new(hypo_content),
         );
 
         AgentEffect::with_proposal(hypothesis)

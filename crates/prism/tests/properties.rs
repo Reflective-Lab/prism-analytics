@@ -2,7 +2,7 @@
 
 use converge_kernel::{Budget, ContextKey, ContextState, Engine};
 use converge_pack::Pack;
-use converge_pack::PackSuggestor;
+use converge_pack::{PackInputPayload, PackSuggestor, ProposedFact};
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack, RankingPack,
     RegressionPack, SegmentationPack, SimilarityPack, TrendDetectionPack,
@@ -20,6 +20,16 @@ fn budget() -> Budget {
     }
 }
 
+fn add_pack_seed(ctx: &mut ContextState, id: &str, pack: &str, input: serde_json::Value) {
+    ctx.add_proposal(ProposedFact::new(
+        ContextKey::Seeds,
+        id,
+        PackInputPayload::new(pack, input),
+        "test",
+    ))
+    .expect("pack seed proposal should stage");
+}
+
 // ── Anomaly Detection ──
 
 proptest! {
@@ -34,7 +44,7 @@ proptest! {
             AnomalyDetectionPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", AnomalyDetectionPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
         prop_assert_eq!(result.context.get(ContextKey::Strategies).len(), 1);
@@ -76,7 +86,7 @@ proptest! {
             SegmentationPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", SegmentationPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
         prop_assert_eq!(result.context.get(ContextKey::Strategies).len(), 1);
@@ -132,7 +142,7 @@ proptest! {
             RankingPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", RankingPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }
@@ -178,7 +188,7 @@ proptest! {
             ForecastingPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", ForecastingPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }
@@ -234,7 +244,7 @@ proptest! {
             ClassificationPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", ClassificationPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }
@@ -283,7 +293,7 @@ proptest! {
             RegressionPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", RegressionPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }
@@ -332,7 +342,7 @@ proptest! {
             SimilarityPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", SimilarityPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }
@@ -373,7 +383,7 @@ proptest! {
             TrendDetectionPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", TrendDetectionPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }
@@ -392,7 +402,7 @@ proptest! {
             DescriptiveStatsPack, ContextKey::Seeds, ContextKey::Strategies,
         ));
         let mut ctx = ContextState::new();
-        let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+        add_pack_seed(&mut ctx, "input-1", DescriptiveStatsPack.name(), input);
         let result = rt().block_on(engine.run(ctx)).expect("should converge");
         prop_assert!(result.converged);
     }

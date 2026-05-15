@@ -20,9 +20,9 @@ build-release:
 check:
     cargo check --workspace --all-targets
 
-# Check optional storage and Excel features
+# Check optional Excel feature
 check-all:
-    cargo check --workspace --all-targets --features prism/storage,prism/excel
+    cargo check --workspace --all-targets --features prism/excel
 
 # Run tests
 test:

@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-05-15
+
 ### Added
 
 - `prism::provenance::prism_execution_identity()` — static helper
@@ -79,6 +81,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
   Prism's canonical provenance at the `ProposedFact` boundary.
 - `prism.suggestor.execute` tracing spans at analytics suggestor boundaries,
   with structured provenance, suggestor name, context keys, and input count.
+- `FeatureVector` now implements `FactPayload`, and the feature/inference path
+  reads typed payloads in process instead of stringified JSON.
 
 ## [1.1.0] - 2026-05-07
 

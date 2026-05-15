@@ -3,6 +3,7 @@
 use converge_kernel::{Budget, ContextKey, ContextState, Engine};
 use converge_pack::Pack;
 use converge_pack::PackSuggestor;
+use converge_pack::{ContextFact, PackInputPayload, PackPlanPayload, ProposedFact};
 use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
@@ -15,6 +16,31 @@ fn budget() -> Budget {
         max_cycles: 5,
         max_facts: 100,
     }
+}
+
+fn fact_content(fact: &ContextFact) -> String {
+    fact.text()
+        .map(str::to_string)
+        .or_else(|| {
+            fact.payload::<PackPlanPayload>()
+                .map(|payload| payload.plan.to_string())
+        })
+        .or_else(|| {
+            fact.to_wire()
+                .ok()
+                .map(|wire| wire.payload.payload.to_string())
+        })
+        .expect("fact payload should render for assertion")
+}
+
+fn add_pack_seed(ctx: &mut ContextState, id: &str, pack: &str, input: serde_json::Value) {
+    ctx.add_proposal(ProposedFact::new(
+        ContextKey::Seeds,
+        id,
+        PackInputPayload::new(pack, input),
+        "test",
+    ))
+    .expect("pack seed proposal should stage");
 }
 
 // ── Validation rejects invalid inputs at the Pack level ──
@@ -250,6 +276,7 @@ fn fuzzy_rejects_unknown_rule_set() {
 // ── Engine-level: invalid JSON seed → pack returns empty effect, engine converges ──
 
 async fn run_with_garbage<P: Pack + 'static>(pack: P) {
+    let pack_name = pack.name();
     let mut engine = Engine::with_budget(budget());
     engine.register_suggestor(PackSuggestor::new(
         pack,
@@ -257,7 +284,12 @@ async fn run_with_garbage<P: Pack + 'static>(pack: P) {
         ContextKey::Strategies,
     ));
     let mut ctx = ContextState::new();
-    let _ = ctx.add_input(ContextKey::Seeds, "garbage", "not valid json {{{");
+    add_pack_seed(
+        &mut ctx,
+        "garbage",
+        pack_name,
+        serde_json::json!("not valid json {{{"),
+    );
     let result = engine.run(ctx).await.expect("should converge gracefully");
     assert!(result.converged);
     // No strategies produced from invalid input
@@ -317,6 +349,7 @@ async fn fuzzy_garbage_input_converges_empty() {
 // ── Idempotency: running same input twice yields same output (no duplication) ──
 
 async fn run_idempotent<P: Pack + 'static>(pack: P, input: serde_json::Value) {
+    let pack_name = pack.name();
     let mut engine = Engine::with_budget(Budget {
         max_cycles: 10,
         max_facts: 100,
@@ -327,7 +360,7 @@ async fn run_idempotent<P: Pack + 'static>(pack: P, input: serde_json::Value) {
         ContextKey::Strategies,
     ));
     let mut ctx = ContextState::new();
-    let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+    add_pack_seed(&mut ctx, "input-1", pack_name, input);
     let result = engine.run(ctx).await.expect("should converge");
 
     // Should converge quickly (2 cycles: seed present → solve → output present → stop)
@@ -479,17 +512,18 @@ async fn anomaly_detection_constant_data_produces_no_anomalies() {
         ContextKey::Strategies,
     ));
     let mut ctx = ContextState::new();
-    let _ = ctx.add_input(
-        ContextKey::Seeds,
+    add_pack_seed(
+        &mut ctx,
         "input-1",
-        serde_json::json!({"values": [5.0, 5.0, 5.0, 5.0, 5.0], "threshold": 2.0}).to_string(),
+        AnomalyDetectionPack.name(),
+        serde_json::json!({"values": [5.0, 5.0, 5.0, 5.0, 5.0], "threshold": 2.0}),
     );
     let result = engine.run(ctx).await.expect("should converge");
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
     // Zero std_dev → no anomalies detected
-    assert!(strategies[0].content().contains("\"anomaly_count\":0"));
+    assert!(fact_content(&strategies[0]).contains("\"anomaly_count\":0"));
 }
 
 // ── Single-element edge cases ──
@@ -503,14 +537,15 @@ async fn descriptive_stats_single_value() {
         ContextKey::Strategies,
     ));
     let mut ctx = ContextState::new();
-    let _ = ctx.add_input(
-        ContextKey::Seeds,
+    add_pack_seed(
+        &mut ctx,
         "input-1",
-        serde_json::json!({"values": [42.0]}).to_string(),
+        DescriptiveStatsPack.name(),
+        serde_json::json!({"values": [42.0]}),
     );
     let result = engine.run(ctx).await.expect("should converge");
     assert!(result.converged);
-    let content = result.context.get(ContextKey::Strategies)[0].content();
+    let content = fact_content(&result.context.get(ContextKey::Strategies)[0]);
     // Single value: mean = median = 42, std = 0
     assert!(content.contains("42"));
     assert!(content.contains("\"std_dev\":0"));

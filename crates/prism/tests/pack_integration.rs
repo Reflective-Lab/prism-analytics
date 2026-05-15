@@ -1,7 +1,7 @@
 //! Integration tests: each analytics pack as a Suggestor in the convergence loop.
 
-use converge_kernel::{Budget, ContextKey, ContextState, ConvergeResult, Engine};
-use converge_pack::PackSuggestor;
+use converge_kernel::{Budget, ContextFact, ContextKey, ContextState, ConvergeResult, Engine};
+use converge_pack::{PackInputPayload, PackPlanPayload, PackSuggestor, ProposedFact};
 use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
@@ -20,6 +20,7 @@ async fn run_with_input<P: converge_pack::Pack + 'static>(
     pack: P,
     input: serde_json::Value,
 ) -> ConvergeResult {
+    let pack_name = pack.name();
     let mut engine = Engine::with_budget(budget());
     engine.register_suggestor(PackSuggestor::new(
         pack,
@@ -27,8 +28,33 @@ async fn run_with_input<P: converge_pack::Pack + 'static>(
         ContextKey::Strategies,
     ));
     let mut ctx = ContextState::new();
-    let _ = ctx.add_input(ContextKey::Seeds, "input-1", input.to_string());
+    add_pack_seed(&mut ctx, "input-1", pack_name, input);
     engine.run(ctx).await.expect("should converge")
+}
+
+fn add_pack_seed(ctx: &mut ContextState, id: &str, pack: &str, input: serde_json::Value) {
+    ctx.add_proposal(ProposedFact::new(
+        ContextKey::Seeds,
+        id,
+        PackInputPayload::new(pack, input),
+        "test",
+    ))
+    .expect("pack seed proposal should stage");
+}
+
+fn fact_content(fact: &ContextFact) -> String {
+    fact.text()
+        .map(str::to_string)
+        .or_else(|| {
+            fact.payload::<PackPlanPayload>()
+                .map(|payload| payload.plan.to_string())
+        })
+        .or_else(|| {
+            fact.to_wire()
+                .ok()
+                .map(|wire| wire.payload.payload.to_string())
+        })
+        .expect("fact payload should render for assertion")
 }
 
 #[tokio::test]
@@ -45,7 +71,7 @@ async fn anomaly_detection_finds_outliers() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("anomalies"));
     assert!(content.contains("50.0") || content.contains("100.0"));
 }
@@ -67,7 +93,7 @@ async fn segmentation_clusters_distinct_groups() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("assignments"));
     assert!(content.contains("centroids"));
 }
@@ -91,7 +117,7 @@ async fn ranking_orders_by_composite_score() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     // "best" should appear before "worst" in ranked output
     let best_pos = content.find("best").expect("best should be in output");
     let worst_pos = content.find("worst").expect("worst should be in output");
@@ -113,7 +139,7 @@ async fn forecasting_produces_predictions() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("predictions"));
     assert!(content.contains("\"step\":1"));
     assert!(content.contains("\"step\":2"));
@@ -185,7 +211,7 @@ async fn fuzzy_inference_grades_expectation_signal() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("satisfaction.high"));
     assert!(content.contains("authentic-novelty-fit"));
     assert!(content.contains("\"confidence\""));
@@ -208,7 +234,7 @@ async fn classification_assigns_labels() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("spam"));
     assert!(content.contains("not-spam"));
     assert!(content.contains("probability"));
@@ -229,7 +255,7 @@ async fn regression_predicts_values() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     // record [1.0] * 10.0 + 5.0 = 15.0
     assert!(content.contains("15"));
     // record [4.0] * 10.0 + 5.0 = 45.0
@@ -255,7 +281,7 @@ async fn similarity_finds_nearest_pairs() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("pairs"));
     // a and b should be most similar (both point roughly in same direction)
     let a_b = content
@@ -279,7 +305,7 @@ async fn trend_detection_identifies_segments() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("segments"));
     assert!(content.contains("rising") || content.contains("falling"));
 }
@@ -298,7 +324,7 @@ async fn descriptive_stats_computes_summary() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("mean"));
     assert!(content.contains("median"));
     assert!(content.contains("std_dev"));
@@ -334,7 +360,7 @@ async fn sugeno_constant_rule_produces_output() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("output"));
     assert!(content.contains("speed-penalty"));
     assert!(content.contains("\"confidence\""));
@@ -370,7 +396,7 @@ async fn sugeno_linear_rule_produces_output() {
     .await;
 
     assert!(result.converged);
-    let content = result.context.get(ContextKey::Strategies)[0].content();
+    let content = fact_content(&result.context.get(ContextKey::Strategies)[0]);
     assert!(content.contains("output"));
 }
 
@@ -408,7 +434,7 @@ async fn tsukamoto_inference_produces_crisp_output() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("output"));
     assert!(content.contains("quality-to-score"));
     assert!(content.contains("\"confidence\""));
@@ -445,7 +471,7 @@ async fn naive_bayes_classifies_point() {
     assert!(result.converged);
     let strategies = result.context.get(ContextKey::Strategies);
     assert_eq!(strategies.len(), 1);
-    let content = strategies[0].content();
+    let content = fact_content(&strategies[0]);
     assert!(content.contains("predicted"));
     assert!(content.contains("spam"));
     assert!(content.contains("probabilities"));
