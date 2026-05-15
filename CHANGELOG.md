@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `prism::provenance::prism_execution_identity()` — static helper
+  returning an `ExecutionIdentity::unspecified(crate_name,
+  crate_version)`. Mirrors Ferrox's `unspecified_solver_identity()`
+  pattern. Prism's audit case is intentionally thin (closed-form pure
+  Rust, no native backend whose build commit can drift); this helper
+  is a placeholder so prism payloads can adopt the workspace-standard
+  identity field without growing the surface. Re-open when Prism wraps
+  a native runtime or grows a learned-parameter pack.
+
 ### Removed (BREAKING)
 
 - Lifted the training pipeline and supporting data plumbing out of prism into

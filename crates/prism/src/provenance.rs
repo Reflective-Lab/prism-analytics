@@ -2,7 +2,7 @@
 
 use std::{error::Error, fmt, str::FromStr};
 
-use converge_pack::{ContextKey, ProposalId, ProposedFact};
+use converge_pack::{ContextKey, ExecutionIdentity, FactPayload, ProposalId, ProposedFact};
 use serde::{Deserialize, Serialize};
 use tracing::info_span;
 
@@ -49,9 +49,9 @@ impl ProvenanceSource {
         self,
         key: ContextKey,
         id: impl Into<ProposalId>,
-        content: impl Into<String>,
+        payload: impl FactPayload + PartialEq,
     ) -> ProposedFact {
-        ProposedFact::new(key, id, content, self.as_str())
+        ProposedFact::new(key, id, payload, self.as_str())
     }
 }
 
@@ -89,6 +89,26 @@ impl fmt::Display for UnknownProvenanceSource {
 
 impl Error for UnknownProvenanceSource {}
 
+/// Static execution identity for any Prism-emitted fact.
+///
+/// Prism's audit case is intentionally thin: all inference is
+/// closed-form pure Rust with no native backend whose build commit
+/// can drift. The "model" is hand-authored rules version-controlled
+/// alongside the crate, so `prism@x.y.z` is the identity. This helper
+/// returns an [`ExecutionIdentity::unspecified`] anchored to the
+/// running prism crate version — mirroring Ferrox's
+/// `unspecified_solver_identity()` pattern.
+///
+/// Re-open condition: if Prism ever wraps a native runtime (ONNX,
+/// TFLite) or grows a learned-parameter pack, this should be
+/// promoted to a non-trivial identity (or moved into per-pack
+/// helpers). Until then, every Prism payload that needs an identity
+/// reads from here.
+#[must_use]
+pub fn prism_execution_identity() -> ExecutionIdentity {
+    ExecutionIdentity::unspecified(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+}
+
 pub(crate) fn suggestor_span(
     name: &str,
     input_key: ContextKey,
@@ -120,8 +140,12 @@ mod tests {
 
     #[test]
     fn proposed_fact_uses_canonical_source_string() {
-        let fact = PRISM_PROVENANCE.proposed_fact(ContextKey::Diagnostic, "diagnostic", "content");
+        let fact = PRISM_PROVENANCE.proposed_fact(
+            ContextKey::Diagnostic,
+            "diagnostic",
+            converge_pack::TextPayload::new("content"),
+        );
 
-        assert_eq!(fact.provenance, "prism");
+        assert_eq!(fact.provenance(), "prism");
     }
 }
