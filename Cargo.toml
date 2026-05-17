@@ -11,9 +11,9 @@ repository = "https://github.com/Reflective-Lab/prism-analytics"
 
 [workspace.dependencies]
 # Converge platform contracts
-converge-pack = "3.8.1"
-converge-optimization = "3.8.1"
-converge-kernel = "3.8.1"
+converge-pack = "3.9.1"
+converge-optimization = "3.9.1"
+converge-kernel = "3.9.1"
 
 # ML / data
 polars = { version = "0.51.0", features = ["csv", "lazy", "log", "ndarray", "parquet", "rows"] }
