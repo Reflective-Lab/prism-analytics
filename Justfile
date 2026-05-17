@@ -102,8 +102,9 @@ coverage:
     cargo llvm-cov report \
         --html --output-dir "${out_dir}/html"
     pct=$(python3 -c "import json; d=json.load(open('${out_dir}/converge-coverage.json')); print(f\"{d['data'][0]['totals']['lines']['percent']:.1f}\")")
-    echo "coverage: ${pct}%  json→${out_dir}/converge-coverage.json  lcov→${out_dir}/lcov.info  html→${out_dir}/html/index.html"
-    awk -v p="${pct}" 'BEGIN { if (p+0 < 80) { print "FAIL: coverage " p "% below 80% floor"; exit 1 } }'
+    floor="${COVERAGE_FLOOR:-80}"
+    echo "coverage: ${pct}%  floor=${floor}%  json→${out_dir}/converge-coverage.json  lcov→${out_dir}/lcov.info  html→${out_dir}/html/index.html"
+    awk -v p="${pct}" -v f="${floor}" 'BEGIN { if (p+0 < f+0) { print "FAIL: coverage " p "% below " f "% floor"; exit 1 } }'
 
 # Gate 3: Criterion baseline. Set PERF_BASELINE to the release tag.
 
