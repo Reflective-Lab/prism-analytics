@@ -7,6 +7,20 @@ source: mixed
 
 ---
 
+## Shipped: v2.0.1 — MembershipDegree Newtype — 2026-05-18
+
+**Tracks:** Converge 3.9.1
+
+- [x] Introduce `MembershipDegree` newtype (clamps to `[0,1]`) across the
+      fuzzy module — replaces bare `f64` in `FuzzyInferenceOutput.memberships`,
+      `ActivatedRule` fields, and all internal arithmetic
+- [x] Fix downstream consumers in organism (`graded_admission`, `fuzzy_reasoner`)
+- [x] Publish `converge-prism-analytics` v2.0.1 to crates.io
+- [x] Tag v2.0.1
+- [x] Remove `[patch.crates-io]` overrides from organism and tally-escrow
+
+---
+
 ## Shipped: v2.0.0 — Fuzzy Inference Release — 2026-05-17
 
 **Tracks:** Converge 3.9.1
