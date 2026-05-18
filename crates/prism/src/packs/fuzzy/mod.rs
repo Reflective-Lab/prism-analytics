@@ -53,7 +53,7 @@ impl Pack for FuzzyInferencePack {
         let (output, report) = solver.solve(&input, spec)?;
 
         let trace = KernelTraceLink::audit_only(format!("trace-{}", spec.problem_id));
-        let confidence = output.confidence;
+        let confidence = output.confidence.value();
         let plan = ProposedPlan::from_payload(
             format!("plan-{}", spec.problem_id),
             self.name(),
@@ -71,13 +71,14 @@ impl Pack for FuzzyInferencePack {
             .map_err(|e| converge_pack::GateError::invalid_input(e.to_string()))?;
 
         let mut results = vec![];
+        // MembershipDegree invariant: always finite and in [0, 1] by construction.
         let outputs_valid = output
             .memberships
             .values()
-            .all(|value| value.is_finite() && (0.0..=1.0).contains(value));
+            .all(|value| value.value().is_finite() && (0.0..=1.0).contains(&value.value()));
         let inputs_valid = output.input_memberships.values().all(|sets| {
             sets.values()
-                .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
+                .all(|value| value.value().is_finite() && (0.0..=1.0).contains(&value.value()))
         });
 
         if outputs_valid && inputs_valid {

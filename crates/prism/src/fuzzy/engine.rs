@@ -16,21 +16,25 @@ impl FuzzyInferenceEngine {
         input.validate()?;
 
         let input_memberships = evaluate_input_memberships(&input.inputs, &input.variables);
-        let mut memberships: BTreeMap<String, f64> = BTreeMap::new();
+        let mut memberships: BTreeMap<String, MembershipDegree> = BTreeMap::new();
         let mut activated_rules = Vec::new();
 
         for (idx, rule) in input.rules.iter().enumerate() {
             let antecedent_strength = evaluate_expression(&rule.when, &input_memberships)?;
             let weight = rule.weight();
-            let strength = (antecedent_strength * weight).clamp(0.0, 1.0);
+            let strength = MembershipDegree::new(antecedent_strength.value() * weight.value());
             let consequent = rule.then.key();
 
             memberships
                 .entry(consequent.clone())
-                .and_modify(|current| *current = current.max(strength))
+                .and_modify(|current| {
+                    if strength > *current {
+                        *current = strength;
+                    }
+                })
                 .or_insert(strength);
 
-            if strength > 0.0 {
+            if strength > MembershipDegree::zero() {
                 activated_rules.push(ActivatedRule {
                     id: rule
                         .id
@@ -44,7 +48,10 @@ impl FuzzyInferenceEngine {
             }
         }
 
-        let confidence = memberships.values().copied().fold(0.0, f64::max);
+        let confidence = memberships
+            .values()
+            .copied()
+            .fold(MembershipDegree::zero(), |a, b| if b > a { b } else { a });
         let output = FuzzyInferenceOutput {
             input_memberships,
             memberships,
@@ -54,7 +61,7 @@ impl FuzzyInferenceEngine {
         };
 
         let replay = ReplayEnvelope::minimal(spec.seed());
-        let report = SolverReport::optimal("fuzzy-inference-v1", confidence, replay);
+        let report = SolverReport::optimal("fuzzy-inference-v1", confidence.value(), replay);
 
         Ok((output, report))
     }

@@ -3,6 +3,32 @@ use std::collections::{BTreeMap, BTreeSet};
 use converge_pack::gate::GateResult as Result;
 use serde::{Deserialize, Serialize};
 
+/// A fuzzy membership degree in [0.0, 1.0]. The constructor clamps the input.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MembershipDegree(f64);
+
+impl MembershipDegree {
+    pub fn new(v: f64) -> Self {
+        Self(v.clamp(0.0, 1.0))
+    }
+    pub fn value(self) -> f64 {
+        self.0
+    }
+    pub fn zero() -> Self {
+        Self(0.0)
+    }
+    pub fn one() -> Self {
+        Self(1.0)
+    }
+}
+
+impl From<MembershipDegree> for f64 {
+    fn from(m: MembershipDegree) -> f64 {
+        m.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FuzzySet {
     pub name: String,
@@ -44,7 +70,7 @@ pub enum MembershipFunction {
 }
 
 impl MembershipFunction {
-    pub fn evaluate(&self, value: f64) -> f64 {
+    pub fn evaluate(&self, value: f64) -> MembershipDegree {
         let membership = match *self {
             Self::Triangular { min, peak, max } => {
                 if value <= min || value >= max {
@@ -97,7 +123,7 @@ impl MembershipFunction {
             }
         };
 
-        membership.clamp(0.0, 1.0)
+        MembershipDegree::new(membership)
     }
 
     /// Whether this membership function is monotonic over its support.
@@ -213,12 +239,12 @@ pub struct FuzzyRule {
     pub when: FuzzyExpression,
     #[serde(rename = "then")]
     pub then: FuzzyConsequent,
-    pub weight: Option<f64>,
+    pub weight: Option<MembershipDegree>,
 }
 
 impl FuzzyRule {
-    pub fn weight(&self) -> f64 {
-        self.weight.unwrap_or(1.0)
+    pub fn weight(&self) -> MembershipDegree {
+        self.weight.unwrap_or_else(MembershipDegree::one)
     }
 }
 
@@ -273,8 +299,11 @@ impl FuzzyInferenceInput {
                     "rule {idx} has an empty id"
                 )));
             }
-            let weight = rule.weight();
-            if !(0.0..=1.0).contains(&weight) || !weight.is_finite() {
+            // weight() returns MembershipDegree which is always in [0,1]; validate
+            // that the raw serialized value (if present) was finite.
+            if let Some(w) = rule.weight
+                && !w.value().is_finite()
+            {
                 return Err(converge_pack::GateError::invalid_input(format!(
                     "rule {idx} weight must be finite and in [0, 1]"
                 )));
@@ -294,18 +323,18 @@ impl FuzzyInferenceInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivatedRule {
     pub id: String,
-    pub antecedent_strength: f64,
-    pub weight: f64,
-    pub strength: f64,
+    pub antecedent_strength: MembershipDegree,
+    pub weight: MembershipDegree,
+    pub strength: MembershipDegree,
     pub consequent: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FuzzyInferenceOutput {
-    pub input_memberships: BTreeMap<String, BTreeMap<String, f64>>,
-    pub memberships: BTreeMap<String, f64>,
+    pub input_memberships: BTreeMap<String, BTreeMap<String, MembershipDegree>>,
+    pub memberships: BTreeMap<String, MembershipDegree>,
     pub activated_rules: Vec<ActivatedRule>,
-    pub confidence: f64,
+    pub confidence: MembershipDegree,
     pub total_rules: usize,
 }
 
@@ -319,7 +348,9 @@ impl FuzzyInferenceOutput {
         match top {
             Some((key, value)) => format!(
                 "Evaluated {} fuzzy rules, top membership: {}={:.3}",
-                self.total_rules, key, value
+                self.total_rules,
+                key,
+                value.value()
             ),
             None => format!(
                 "Evaluated {} fuzzy rules, no memberships fired",
@@ -445,7 +476,7 @@ fn validate_finite(values: &[f64]) -> Result<()> {
 pub(super) fn evaluate_input_memberships(
     inputs: &BTreeMap<String, f64>,
     variables: &[LinguisticVariable],
-) -> BTreeMap<String, BTreeMap<String, f64>> {
+) -> BTreeMap<String, BTreeMap<String, MembershipDegree>> {
     let mut memberships = BTreeMap::new();
 
     for variable in variables {
@@ -466,8 +497,8 @@ pub(super) fn evaluate_input_memberships(
 
 pub(super) fn evaluate_expression(
     expression: &FuzzyExpression,
-    memberships: &BTreeMap<String, BTreeMap<String, f64>>,
-) -> Result<f64> {
+    memberships: &BTreeMap<String, BTreeMap<String, MembershipDegree>>,
+) -> Result<MembershipDegree> {
     match expression {
         FuzzyExpression::Is { variable, set } => memberships
             .get(variable)
@@ -479,20 +510,28 @@ pub(super) fn evaluate_expression(
                 ))
             }),
         FuzzyExpression::And { terms } => {
-            let mut value: f64 = 1.0;
+            let mut value = MembershipDegree::one();
             for term in terms {
-                value = value.min(evaluate_expression(term, memberships)?);
+                let t = evaluate_expression(term, memberships)?;
+                if t < value {
+                    value = t;
+                }
             }
             Ok(value)
         }
         FuzzyExpression::Or { terms } => {
-            let mut value: f64 = 0.0;
+            let mut value = MembershipDegree::zero();
             for term in terms {
-                value = value.max(evaluate_expression(term, memberships)?);
+                let t = evaluate_expression(term, memberships)?;
+                if t > value {
+                    value = t;
+                }
             }
             Ok(value)
         }
-        FuzzyExpression::Not { term } => Ok(1.0 - evaluate_expression(term, memberships)?),
+        FuzzyExpression::Not { term } => Ok(MembershipDegree::new(
+            1.0 - evaluate_expression(term, memberships)?.value(),
+        )),
     }
 }
 
@@ -510,7 +549,7 @@ mod tests {
             peak: 0.5,
             max: 1.0,
         };
-        assert!((mf.evaluate(0.5) - 1.0).abs() < 1e-10);
+        assert!((mf.evaluate(0.5).value() - 1.0).abs() < 1e-10);
     }
 
     #[test]
@@ -520,7 +559,7 @@ mod tests {
             peak: 0.5,
             max: 1.0,
         };
-        assert!((mf.evaluate(0.25) - 0.5).abs() < 1e-10);
+        assert!((mf.evaluate(0.25).value() - 0.5).abs() < 1e-10);
     }
 
     #[test]
@@ -530,7 +569,7 @@ mod tests {
             peak: 0.5,
             max: 1.0,
         };
-        assert!((mf.evaluate(0.75) - 0.5).abs() < 1e-10);
+        assert!((mf.evaluate(0.75).value() - 0.5).abs() < 1e-10);
     }
 
     #[test]
@@ -540,9 +579,9 @@ mod tests {
             peak: 0.5,
             max: 1.0,
         };
-        assert_eq!(mf.evaluate(0.0), 0.0);
-        assert_eq!(mf.evaluate(1.0), 0.0);
-        assert_eq!(mf.evaluate(-1.0), 0.0);
+        assert_eq!(mf.evaluate(0.0), MembershipDegree::zero());
+        assert_eq!(mf.evaluate(1.0), MembershipDegree::zero());
+        assert_eq!(mf.evaluate(-1.0), MembershipDegree::zero());
     }
 
     #[test]
@@ -553,9 +592,9 @@ mod tests {
             upper_peak: 0.7,
             max: 1.0,
         };
-        assert_eq!(mf.evaluate(0.3), 1.0);
-        assert_eq!(mf.evaluate(0.5), 1.0);
-        assert_eq!(mf.evaluate(0.7), 1.0);
+        assert_eq!(mf.evaluate(0.3), MembershipDegree::one());
+        assert_eq!(mf.evaluate(0.5), MembershipDegree::one());
+        assert_eq!(mf.evaluate(0.7), MembershipDegree::one());
     }
 
     #[test]
@@ -566,7 +605,7 @@ mod tests {
             upper_peak: 0.6,
             max: 1.0,
         };
-        assert!((mf.evaluate(0.2) - 0.5).abs() < 1e-10);
+        assert!((mf.evaluate(0.2).value() - 0.5).abs() < 1e-10);
     }
 
     #[test]
@@ -577,7 +616,7 @@ mod tests {
             upper_peak: 0.6,
             max: 1.0,
         };
-        assert!((mf.evaluate(0.8) - 0.5).abs() < 1e-10);
+        assert!((mf.evaluate(0.8).value() - 0.5).abs() < 1e-10);
     }
 
     #[test]
@@ -588,8 +627,8 @@ mod tests {
             upper_peak: 0.7,
             max: 1.0,
         };
-        assert_eq!(mf.evaluate(0.0), 0.0);
-        assert_eq!(mf.evaluate(1.0), 0.0);
+        assert_eq!(mf.evaluate(0.0), MembershipDegree::zero());
+        assert_eq!(mf.evaluate(1.0), MembershipDegree::zero());
     }
 
     #[test]
@@ -598,8 +637,8 @@ mod tests {
             start: 0.3,
             end: 0.7,
         };
-        assert_eq!(mf.evaluate(0.0), 1.0);
-        assert_eq!(mf.evaluate(0.3), 1.0);
+        assert_eq!(mf.evaluate(0.0), MembershipDegree::one());
+        assert_eq!(mf.evaluate(0.3), MembershipDegree::one());
     }
 
     #[test]
@@ -608,7 +647,7 @@ mod tests {
             start: 0.3,
             end: 0.7,
         };
-        assert!((mf.evaluate(0.5) - 0.5).abs() < 1e-10);
+        assert!((mf.evaluate(0.5).value() - 0.5).abs() < 1e-10);
     }
 
     #[test]
@@ -617,8 +656,8 @@ mod tests {
             start: 0.3,
             end: 0.7,
         };
-        assert_eq!(mf.evaluate(0.7), 0.0);
-        assert_eq!(mf.evaluate(1.0), 0.0);
+        assert_eq!(mf.evaluate(0.7), MembershipDegree::zero());
+        assert_eq!(mf.evaluate(1.0), MembershipDegree::zero());
     }
 
     #[test]
@@ -627,8 +666,8 @@ mod tests {
             start: 0.3,
             end: 0.7,
         };
-        assert_eq!(mf.evaluate(0.0), 0.0);
-        assert_eq!(mf.evaluate(0.3), 0.0);
+        assert_eq!(mf.evaluate(0.0), MembershipDegree::zero());
+        assert_eq!(mf.evaluate(0.3), MembershipDegree::zero());
     }
 
     #[test]
@@ -637,7 +676,7 @@ mod tests {
             start: 0.3,
             end: 0.7,
         };
-        assert!((mf.evaluate(0.5) - 0.5).abs() < 1e-10);
+        assert!((mf.evaluate(0.5).value() - 0.5).abs() < 1e-10);
     }
 
     #[test]
@@ -646,8 +685,8 @@ mod tests {
             start: 0.3,
             end: 0.7,
         };
-        assert_eq!(mf.evaluate(0.7), 1.0);
-        assert_eq!(mf.evaluate(1.0), 1.0);
+        assert_eq!(mf.evaluate(0.7), MembershipDegree::one());
+        assert_eq!(mf.evaluate(1.0), MembershipDegree::one());
     }
 
     #[test]
@@ -656,7 +695,7 @@ mod tests {
             center: 0.5,
             sigma: 0.1,
         };
-        assert!((mf.evaluate(0.5) - 1.0).abs() < 1e-10);
+        assert!((mf.evaluate(0.5).value() - 1.0).abs() < 1e-10);
     }
 
     #[test]
@@ -665,7 +704,7 @@ mod tests {
             center: 0.0,
             sigma: 1.0,
         };
-        assert!((mf.evaluate(1.0) - (-0.5_f64).exp()).abs() < 1e-10);
+        assert!((mf.evaluate(1.0).value() - (-0.5_f64).exp()).abs() < 1e-10);
     }
 
     // ── MembershipFunction::validate ─────────────────────────────────────────
@@ -934,11 +973,11 @@ mod tests {
 
     // ── evaluate_expression ───────────────────────────────────────────────────
 
-    fn sample_memberships() -> BTreeMap<String, BTreeMap<String, f64>> {
+    fn sample_memberships() -> BTreeMap<String, BTreeMap<String, MembershipDegree>> {
         let mut outer = BTreeMap::new();
         let mut sets = BTreeMap::new();
-        sets.insert("hot".to_string(), 0.8);
-        sets.insert("cold".to_string(), 0.2);
+        sets.insert("hot".to_string(), MembershipDegree::new(0.8));
+        sets.insert("cold".to_string(), MembershipDegree::new(0.2));
         outer.insert("temperature".to_string(), sets);
         outer
     }
@@ -949,7 +988,14 @@ mod tests {
             variable: "temperature".to_string(),
             set: "hot".to_string(),
         };
-        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.8).abs() < 1e-10);
+        assert!(
+            (evaluate_expression(&expr, &sample_memberships())
+                .unwrap()
+                .value()
+                - 0.8)
+                .abs()
+                < 1e-10
+        );
     }
 
     #[test]
@@ -966,7 +1012,14 @@ mod tests {
                 },
             ],
         };
-        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.2).abs() < 1e-10);
+        assert!(
+            (evaluate_expression(&expr, &sample_memberships())
+                .unwrap()
+                .value()
+                - 0.2)
+                .abs()
+                < 1e-10
+        );
     }
 
     #[test]
@@ -983,7 +1036,14 @@ mod tests {
                 },
             ],
         };
-        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.8).abs() < 1e-10);
+        assert!(
+            (evaluate_expression(&expr, &sample_memberships())
+                .unwrap()
+                .value()
+                - 0.8)
+                .abs()
+                < 1e-10
+        );
     }
 
     #[test]
@@ -994,7 +1054,14 @@ mod tests {
                 set: "hot".to_string(),
             }),
         };
-        assert!((evaluate_expression(&expr, &sample_memberships()).unwrap() - 0.2).abs() < 1e-10);
+        assert!(
+            (evaluate_expression(&expr, &sample_memberships())
+                .unwrap()
+                .value()
+                - 0.2)
+                .abs()
+                < 1e-10
+        );
     }
 
     #[test]
@@ -1011,12 +1078,12 @@ mod tests {
     #[test]
     fn summary_with_memberships() {
         let mut memberships = BTreeMap::new();
-        memberships.insert("comfort.high".to_string(), 0.75);
+        memberships.insert("comfort.high".to_string(), MembershipDegree::new(0.75));
         let output = FuzzyInferenceOutput {
             input_memberships: BTreeMap::new(),
             memberships,
             activated_rules: vec![],
-            confidence: 0.75,
+            confidence: MembershipDegree::new(0.75),
             total_rules: 2,
         };
         let s = output.summary();
@@ -1030,7 +1097,7 @@ mod tests {
             input_memberships: BTreeMap::new(),
             memberships: BTreeMap::new(),
             activated_rules: vec![],
-            confidence: 0.0,
+            confidence: MembershipDegree::zero(),
             total_rules: 1,
         };
         assert!(output.summary().contains("no memberships fired"));

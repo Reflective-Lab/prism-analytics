@@ -51,7 +51,7 @@ pub fn defuzzify_mamdani(
                     .sets
                     .iter()
                     .find(|s| s.name == set_name)
-                    .map(|s| (s, *strength))
+                    .map(|s| (s, strength.value()))
             })
         })
         .filter(|(_, strength)| *strength > 0.0)
@@ -67,7 +67,7 @@ pub fn defuzzify_mamdani(
             let x = domain.min + (i as f64) * dx;
             let mu = consequents
                 .iter()
-                .map(|(set, strength)| set.function.evaluate(x).min(*strength))
+                .map(|(set, strength)| set.function.evaluate(x).value().min(*strength))
                 .fold(0.0_f64, f64::max);
             (x, mu)
         })
@@ -133,24 +133,26 @@ pub fn weighted_average(rules: &[(f64, f64)]) -> Option<f64> {
 mod tests {
     use super::{DefuzzMethod, Domain, defuzzify_mamdani, weighted_average};
     use crate::fuzzy::{
-        ActivatedRule, FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction,
+        ActivatedRule, FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipDegree,
+        MembershipFunction,
     };
     use std::collections::BTreeMap;
 
     fn make_output(key: &str, strength: f64) -> FuzzyInferenceOutput {
+        let md = MembershipDegree::new(strength);
         let mut memberships = BTreeMap::new();
-        memberships.insert(key.to_string(), strength);
+        memberships.insert(key.to_string(), md);
         FuzzyInferenceOutput {
             input_memberships: BTreeMap::new(),
             memberships,
             activated_rules: vec![ActivatedRule {
                 id: "r1".to_string(),
-                antecedent_strength: strength,
-                weight: 1.0,
-                strength,
+                antecedent_strength: md,
+                weight: MembershipDegree::one(),
+                strength: md,
                 consequent: key.to_string(),
             }],
-            confidence: strength,
+            confidence: md,
             total_rules: 1,
         }
     }

@@ -228,13 +228,24 @@ impl SugenoInferenceEngine {
     ) -> Result<(SugenoInferenceOutput, SolverReport)> {
         input.validate()?;
 
-        let input_memberships = evaluate_input_memberships(&input.inputs, &input.variables);
+        let input_memberships_typed = evaluate_input_memberships(&input.inputs, &input.variables);
+        // Convert to f64 map for SugenoInferenceOutput (Sugeno uses raw f64 for its own output).
+        let input_memberships: BTreeMap<String, BTreeMap<String, f64>> = input_memberships_typed
+            .iter()
+            .map(|(k, sets)| {
+                (
+                    k.clone(),
+                    sets.iter().map(|(s, v)| (s.clone(), v.value())).collect(),
+                )
+            })
+            .collect();
         let mut activated_rules = Vec::new();
         let mut weighted_pairs: Vec<(f64, f64)> = Vec::new();
         let mut max_firing_strength = 0.0_f64;
 
         for (idx, rule) in input.rules.iter().enumerate() {
-            let antecedent_strength = evaluate_expression(&rule.when, &input_memberships)?;
+            let antecedent_strength =
+                evaluate_expression(&rule.when, &input_memberships_typed)?.value();
             let weight = rule.weight();
             let firing_strength = (antecedent_strength * weight).clamp(0.0, 1.0);
 

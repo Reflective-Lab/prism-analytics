@@ -8,15 +8,18 @@
 //! deliberately avoided.
 
 use converge_kernel::{Budget, ContextKey, ContextState, Engine};
+use converge_optimization::packs::{InvariantResult, Pack};
 use converge_pack::gate::{KernelTraceLink, ObjectiveSpec, ProblemSpec, ProposedPlan};
 use converge_pack::{PackInputPayload, ProposedFact};
-use converge_optimization::packs::{InvariantResult, Pack};
 use proptest::prelude::*;
 
 use prism::fuzzy::{
-    DefuzzMethod, Domain, FuzzySet, LinguisticVariable, MembershipFunction, defuzzify_mamdani,
+    ActivatedRule, DefuzzMethod, Domain, FuzzyInferenceOutput, FuzzySet, LinguisticVariable,
+    MembershipDegree, MembershipFunction, defuzzify_mamdani,
 };
-use prism::packs::anomaly_detection::{AnomalyDetectionInput, AnomalyDetectionOutput, ZScoreSolver};
+use prism::packs::anomaly_detection::{
+    AnomalyDetectionInput, AnomalyDetectionOutput, ZScoreSolver,
+};
 use prism::packs::classification::{ClassificationInput, ClassificationOutput, LogisticClassifier};
 use prism::packs::descriptive_stats::{
     DescriptiveStatsInput, DescriptiveStatsOutput, DescriptiveStatsSolver,
@@ -239,11 +242,7 @@ mod inference_agent {
         // misaligns predictions with input rows — the worst possible inference
         // bug because nothing crashes.
         let cfg = ModelConfig::new(3, 8, 1);
-        let fv = FeatureVector::new(
-            vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
-            [2, 3],
-        )
-        .unwrap();
+        let fv = FeatureVector::new(vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6], [2, 3]).unwrap();
         let out = run_batch_inference(&cfg, &fv).expect("inference must succeed");
         assert!(!out.is_empty(), "must produce at least one prediction");
         // Per-row output: shape [n, 1], so values.len() == n
@@ -258,14 +257,14 @@ mod inference_agent {
         let device = Default::default();
         let cfg = ModelConfig::new(2, 4, 1);
         let model: Model<B> = cfg.init(&device);
-        let input = burn::tensor::Tensor::<B, 1>::from_floats(
-            [0.1f32, 0.2].as_slice(),
-            &device,
-        )
-        .reshape([1usize, 2]);
+        let input = burn::tensor::Tensor::<B, 1>::from_floats([0.1f32, 0.2].as_slice(), &device)
+            .reshape([1usize, 2]);
         let out_a: Vec<f32> = model.forward(input.clone()).into_data().to_vec().unwrap();
         let out_b: Vec<f32> = model.forward(input).into_data().to_vec().unwrap();
-        assert_eq!(out_a, out_b, "deterministic forward must agree byte-for-byte");
+        assert_eq!(
+            out_a, out_b,
+            "deterministic forward must agree byte-for-byte"
+        );
     }
 
     #[tokio::test]
@@ -293,7 +292,10 @@ mod inference_agent {
         // The agent emits a hypothesis when given features. If wiring breaks,
         // we'd see zero hypotheses.
         let hypos = result.context.get(ContextKey::Hypotheses);
-        assert!(!hypos.is_empty(), "InferenceAgent must produce a hypothesis from features");
+        assert!(
+            !hypos.is_empty(),
+            "InferenceAgent must produce a hypothesis from features"
+        );
     }
 
     #[test]
@@ -318,7 +320,12 @@ mod inference_agent {
 mod anomaly_detection_invariants {
     use super::*;
 
-    fn make_output(mean: f64, std_dev: f64, anomaly_count: usize, total: usize) -> AnomalyDetectionOutput {
+    fn make_output(
+        mean: f64,
+        std_dev: f64,
+        anomaly_count: usize,
+        total: usize,
+    ) -> AnomalyDetectionOutput {
         AnomalyDetectionOutput {
             anomalies: vec![],
             mean,
@@ -378,7 +385,8 @@ mod anomaly_detection_invariants {
         // Intent: solve→check_invariants→evaluate_gate is the path the engine
         // runs in production. If evaluate_gate panics on a well-formed plan,
         // every prism inference call panics.
-        let input = serde_json::json!({"values": [10.0, 10.0, 10.0, 10.0, 100.0], "threshold": 2.0});
+        let input =
+            serde_json::json!({"values": [10.0, 10.0, 10.0, 10.0, 100.0], "threshold": 2.0});
         let s = spec_with_input("ad-end-to-end", input);
         let result = AnomalyDetectionPack.solve(&s).unwrap();
         let results = AnomalyDetectionPack.check_invariants(&result.plan).unwrap();
@@ -504,7 +512,9 @@ mod segmentation_invariants {
     fn balanced_clusters_fails_on_tiny_cluster() {
         // Intent: a cluster with <10% of expected size is a degenerate
         // partition; the advisory must surface so operators don't trust it.
-        let assignments = std::iter::repeat_n(0, 99).chain(std::iter::once(1)).collect::<Vec<_>>();
+        let assignments = std::iter::repeat_n(0, 99)
+            .chain(std::iter::once(1))
+            .collect::<Vec<_>>();
         let plan = plan_for("segmentation", &make_output(2, assignments));
         let results = SegmentationPack.check_invariants(&plan).unwrap();
         assert!(fails(&results, "balanced-clusters"));
@@ -619,7 +629,10 @@ mod descriptive_stats_invariants {
             range: 2.0,
             skewness,
             kurtosis: 3.0,
-            percentiles: vec![PercentileResult { percentile: 50.0, value: 0.0 }],
+            percentiles: vec![PercentileResult {
+                percentile: 50.0,
+                value: 0.0,
+            }],
         }
     }
 
@@ -713,8 +726,18 @@ mod forecasting_invariants {
         let plan = plan_for(
             "forecasting",
             &make_output(vec![
-                ForecastPoint { step: 1, value: 10.0, lower: 9.0, upper: 11.0 },
-                ForecastPoint { step: 2, value: 10.0, lower: -50.0, upper: 70.0 },
+                ForecastPoint {
+                    step: 1,
+                    value: 10.0,
+                    lower: 9.0,
+                    upper: 11.0,
+                },
+                ForecastPoint {
+                    step: 2,
+                    value: 10.0,
+                    lower: -50.0,
+                    upper: 70.0,
+                },
             ]),
         );
         let results = ForecastingPack.check_invariants(&plan).unwrap();
@@ -726,8 +749,18 @@ mod forecasting_invariants {
         let plan = plan_for(
             "forecasting",
             &make_output(vec![
-                ForecastPoint { step: 1, value: 10.0, lower: 9.0, upper: 11.0 },
-                ForecastPoint { step: 2, value: 10.0, lower: 8.5, upper: 11.5 },
+                ForecastPoint {
+                    step: 1,
+                    value: 10.0,
+                    lower: 9.0,
+                    upper: 11.0,
+                },
+                ForecastPoint {
+                    step: 2,
+                    value: 10.0,
+                    lower: 8.5,
+                    upper: 11.5,
+                },
             ]),
         );
         let results = ForecastingPack.check_invariants(&plan).unwrap();
@@ -895,7 +928,10 @@ mod trend_detection_invariants {
     use super::*;
     use prism::packs::trend_detection::{Changepoint, TrendDirection, TrendSegment};
 
-    fn make_output(segments: Vec<TrendSegment>, changepoints: Vec<Changepoint>) -> TrendDetectionOutput {
+    fn make_output(
+        segments: Vec<TrendSegment>,
+        changepoints: Vec<Changepoint>,
+    ) -> TrendDetectionOutput {
         TrendDetectionOutput {
             segments,
             changepoints,
@@ -950,7 +986,10 @@ mod trend_detection_invariants {
         // Intent: too many changepoints means we're fitting noise — the
         // advisory tells the operator the signal isn't trustworthy.
         let cps: Vec<Changepoint> = (0..8)
-            .map(|i| Changepoint { index: i, magnitude: 1.0 })
+            .map(|i| Changepoint {
+                index: i,
+                magnitude: 1.0,
+            })
             .collect();
         let plan = plan_for("trend-detection", &make_output(vec![seg(0, 9)], cps));
         let results = TrendDetectionPack.check_invariants(&plan).unwrap();
@@ -963,7 +1002,10 @@ mod trend_detection_invariants {
             "trend-detection",
             &make_output(
                 vec![seg(0, 20)],
-                vec![Changepoint { index: 10, magnitude: 2.0 }],
+                vec![Changepoint {
+                    index: 10,
+                    magnitude: 2.0,
+                }],
             ),
         );
         let results = TrendDetectionPack.check_invariants(&plan).unwrap();
@@ -986,7 +1028,12 @@ mod naive_bayes_invariants {
 
     fn make_output(probs: &[(&str, f64)], confidence: f64) -> NaiveBayesOutput {
         NaiveBayesOutput {
-            predicted: probs.iter().max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap().0.to_string(),
+            predicted: probs
+                .iter()
+                .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+                .unwrap()
+                .0
+                .to_string(),
             confidence,
             probabilities: probs
                 .iter()
@@ -1390,19 +1437,20 @@ proptest! {
                 function: MembershipFunction::Triangular { min: 0.0, peak, max: 1.0 },
             }],
         }];
+        let md = MembershipDegree::new(strength);
         let mut memberships = std::collections::BTreeMap::new();
-        memberships.insert("y.mid".to_string(), strength);
-        let output = prism::fuzzy::FuzzyInferenceOutput {
+        memberships.insert("y.mid".to_string(), md);
+        let output = FuzzyInferenceOutput {
             input_memberships: std::collections::BTreeMap::new(),
             memberships,
-            activated_rules: vec![prism::fuzzy::ActivatedRule {
+            activated_rules: vec![ActivatedRule {
                 id: "r1".into(),
-                antecedent_strength: strength,
-                weight: 1.0,
-                strength,
+                antecedent_strength: md,
+                weight: MembershipDegree::one(),
+                strength: md,
                 consequent: "y.mid".into(),
             }],
-            confidence: strength,
+            confidence: md,
             total_rules: 1,
         };
         let r = defuzzify_mamdani(
@@ -1430,18 +1478,18 @@ proptest! {
             }],
         }];
         let mut memberships = std::collections::BTreeMap::new();
-        memberships.insert("y.mid".to_string(), 1.0);
-        let output = prism::fuzzy::FuzzyInferenceOutput {
+        memberships.insert("y.mid".to_string(), MembershipDegree::one());
+        let output = FuzzyInferenceOutput {
             input_memberships: std::collections::BTreeMap::new(),
             memberships,
-            activated_rules: vec![prism::fuzzy::ActivatedRule {
+            activated_rules: vec![ActivatedRule {
                 id: "r1".into(),
-                antecedent_strength: 1.0,
-                weight: 1.0,
-                strength: 1.0,
+                antecedent_strength: MembershipDegree::one(),
+                weight: MembershipDegree::one(),
+                strength: MembershipDegree::one(),
                 consequent: "y.mid".into(),
             }],
-            confidence: 1.0,
+            confidence: MembershipDegree::one(),
             total_rules: 1,
         };
         for method in [DefuzzMethod::MeanOfMaxima, DefuzzMethod::Bisector, DefuzzMethod::Height] {
@@ -1470,7 +1518,10 @@ fn prism_execution_identity_is_stable() {
     // Changing the package name silently breaks cross-version replay.
     let id = prism_execution_identity();
     let s = format!("{id:?}");
-    assert!(s.contains("converge-prism-analytics"), "identity missing package: {s}");
+    assert!(
+        s.contains("converge-prism-analytics"),
+        "identity missing package: {s}"
+    );
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -1483,17 +1534,24 @@ fn ranking_top_k_truncates_correctly() {
     // Intent: top_k must trim to exactly k items; if it doesn't, every
     // downstream "top suggestions" UI shows the wrong number.
     let input = RankingInput {
-        items: (0..10).map(|i| RankItem {
-            id: format!("item-{i}"),
-            scores: vec![i as f64],
-        }).collect(),
+        items: (0..10)
+            .map(|i| RankItem {
+                id: format!("item-{i}"),
+                scores: vec![i as f64],
+            })
+            .collect(),
         weights: vec![1.0],
         higher_is_better: vec![true],
         top_k: Some(3),
     };
-    let (out, _) = WeightedScoringSolver.solve(&input, &spec("rank-topk")).unwrap();
+    let (out, _) = WeightedScoringSolver
+        .solve(&input, &spec("rank-topk"))
+        .unwrap();
     assert_eq!(out.ranked.len(), 3);
-    assert_eq!(out.total_items, 10, "total_items must report pre-truncation count");
+    assert_eq!(
+        out.total_items, 10,
+        "total_items must report pre-truncation count"
+    );
 }
 
 #[test]
@@ -1502,16 +1560,27 @@ fn ranking_handles_zero_weight_sum() {
     // average rather than divide by zero and emit NaN scores.
     let input = RankingInput {
         items: vec![
-            RankItem { id: "a".into(), scores: vec![1.0, 2.0] },
-            RankItem { id: "b".into(), scores: vec![3.0, 4.0] },
+            RankItem {
+                id: "a".into(),
+                scores: vec![1.0, 2.0],
+            },
+            RankItem {
+                id: "b".into(),
+                scores: vec![3.0, 4.0],
+            },
         ],
         weights: vec![0.0, 0.0],
         higher_is_better: vec![true, true],
         top_k: None,
     };
-    let (out, _) = WeightedScoringSolver.solve(&input, &spec("rank-zero-w")).unwrap();
+    let (out, _) = WeightedScoringSolver
+        .solve(&input, &spec("rank-zero-w"))
+        .unwrap();
     for r in &out.ranked {
-        assert!(r.composite_score.is_finite(), "score must be finite with zero weights");
+        assert!(
+            r.composite_score.is_finite(),
+            "score must be finite with zero weights"
+        );
     }
 }
 
@@ -1521,15 +1590,26 @@ fn ranking_handles_constant_dimension() {
     // solver must not crash on (range = 0) — it should assign 0.5 normalized.
     let input = RankingInput {
         items: vec![
-            RankItem { id: "a".into(), scores: vec![5.0, 1.0] },
-            RankItem { id: "b".into(), scores: vec![5.0, 2.0] },
-            RankItem { id: "c".into(), scores: vec![5.0, 3.0] },
+            RankItem {
+                id: "a".into(),
+                scores: vec![5.0, 1.0],
+            },
+            RankItem {
+                id: "b".into(),
+                scores: vec![5.0, 2.0],
+            },
+            RankItem {
+                id: "c".into(),
+                scores: vec![5.0, 3.0],
+            },
         ],
         weights: vec![0.5, 0.5],
         higher_is_better: vec![true, true],
         top_k: None,
     };
-    let (out, _) = WeightedScoringSolver.solve(&input, &spec("rank-const-dim")).unwrap();
+    let (out, _) = WeightedScoringSolver
+        .solve(&input, &spec("rank-const-dim"))
+        .unwrap();
     assert_eq!(out.ranked.len(), 3);
     for r in &out.ranked {
         assert!(r.composite_score.is_finite());
@@ -1542,33 +1622,52 @@ fn ranking_lower_is_better_inverts() {
     // doesn't, callers wanting "lowest cost" silently get "highest cost".
     let input = RankingInput {
         items: vec![
-            RankItem { id: "cheap".into(), scores: vec![1.0] },
-            RankItem { id: "expensive".into(), scores: vec![10.0] },
+            RankItem {
+                id: "cheap".into(),
+                scores: vec![1.0],
+            },
+            RankItem {
+                id: "expensive".into(),
+                scores: vec![10.0],
+            },
         ],
         weights: vec![1.0],
         higher_is_better: vec![false],
         top_k: None,
     };
-    let (out, _) = WeightedScoringSolver.solve(&input, &spec("rank-lower")).unwrap();
-    assert_eq!(out.ranked[0].id, "cheap", "lower-is-better must put 'cheap' first");
+    let (out, _) = WeightedScoringSolver
+        .solve(&input, &spec("rank-lower"))
+        .unwrap();
+    assert_eq!(
+        out.ranked[0].id, "cheap",
+        "lower-is-better must put 'cheap' first"
+    );
 }
 
 #[test]
 fn similarity_top_k_truncates() {
     // Intent: top_k controls a hot-path UI list; off-by-one or unbounded
     // returns blow up rendering downstream.
-    let items: Vec<SimilarityItem> = (0..5).map(|i| SimilarityItem {
-        id: format!("i{i}"),
-        features: vec![i as f64, (i * 2) as f64],
-    }).collect();
+    let items: Vec<SimilarityItem> = (0..5)
+        .map(|i| SimilarityItem {
+            id: format!("i{i}"),
+            features: vec![i as f64, (i * 2) as f64],
+        })
+        .collect();
     let input = SimilarityInput {
         items,
         metric: DistanceMetric::Euclidean,
         top_k: Some(2),
     };
-    let (out, _) = PairwiseSimilaritySolver.solve(&input, &spec("sim-topk")).unwrap();
+    let (out, _) = PairwiseSimilaritySolver
+        .solve(&input, &spec("sim-topk"))
+        .unwrap();
     assert_eq!(out.pairs.len(), 2);
-    assert_eq!(out.total_pairs, 5 * 4 / 2, "total_pairs reports pre-truncation count");
+    assert_eq!(
+        out.total_pairs,
+        5 * 4 / 2,
+        "total_pairs reports pre-truncation count"
+    );
 }
 
 #[test]
@@ -1577,13 +1676,21 @@ fn similarity_manhattan_handles_identical_vectors() {
     // metric that disagrees with itself on identity breaks nearest-neighbour.
     let input = SimilarityInput {
         items: vec![
-            SimilarityItem { id: "a".into(), features: vec![1.0, 2.0, 3.0] },
-            SimilarityItem { id: "b".into(), features: vec![1.0, 2.0, 3.0] },
+            SimilarityItem {
+                id: "a".into(),
+                features: vec![1.0, 2.0, 3.0],
+            },
+            SimilarityItem {
+                id: "b".into(),
+                features: vec![1.0, 2.0, 3.0],
+            },
         ],
         metric: DistanceMetric::Manhattan,
         top_k: None,
     };
-    let (out, _) = PairwiseSimilaritySolver.solve(&input, &spec("sim-man")).unwrap();
+    let (out, _) = PairwiseSimilaritySolver
+        .solve(&input, &spec("sim-man"))
+        .unwrap();
     assert!((out.pairs[0].score - 1.0).abs() < 1e-9);
 }
 
@@ -1593,13 +1700,21 @@ fn similarity_cosine_zero_vector_returns_zero() {
     // 0 rather than NaN so downstream callers don't propagate poison values.
     let input = SimilarityInput {
         items: vec![
-            SimilarityItem { id: "a".into(), features: vec![0.0, 0.0] },
-            SimilarityItem { id: "b".into(), features: vec![1.0, 1.0] },
+            SimilarityItem {
+                id: "a".into(),
+                features: vec![0.0, 0.0],
+            },
+            SimilarityItem {
+                id: "b".into(),
+                features: vec![1.0, 1.0],
+            },
         ],
         metric: DistanceMetric::Cosine,
         top_k: None,
     };
-    let (out, _) = PairwiseSimilaritySolver.solve(&input, &spec("sim-zero")).unwrap();
+    let (out, _) = PairwiseSimilaritySolver
+        .solve(&input, &spec("sim-zero"))
+        .unwrap();
     assert_eq!(out.pairs[0].score, 0.0);
     assert!(out.pairs[0].score.is_finite());
 }
@@ -1616,7 +1731,10 @@ fn segmentation_uses_seed_for_init() {
     };
     let (a, _) = KMeansSolver.solve(&input, &spec("seg-seed")).unwrap();
     let (b, _) = KMeansSolver.solve(&input, &spec("seg-seed")).unwrap();
-    assert_eq!(a.assignments, b.assignments, "seeded init must be deterministic");
+    assert_eq!(
+        a.assignments, b.assignments,
+        "seeded init must be deterministic"
+    );
     assert_eq!(a.centroids, b.centroids);
 }
 
@@ -1670,7 +1788,9 @@ fn forecasting_residual_std_is_non_negative() {
         horizon: 3,
         alpha: 0.5,
     };
-    let (out, _) = ExponentialSmoothingSolver.solve(&input, &spec("fc-resid")).unwrap();
+    let (out, _) = ExponentialSmoothingSolver
+        .solve(&input, &spec("fc-resid"))
+        .unwrap();
     assert!(out.residual_std >= 0.0);
     assert_eq!(out.predictions.len(), 3);
 }
@@ -1686,7 +1806,9 @@ fn logistic_classifier_with_custom_labels() {
         threshold: 0.5,
         labels: Some(("spam".into(), "ham".into())),
     };
-    let (out, _) = LogisticClassifier.solve(&input, &spec("cl-labels")).unwrap();
+    let (out, _) = LogisticClassifier
+        .solve(&input, &spec("cl-labels"))
+        .unwrap();
     assert_eq!(out.predictions[0].label, "spam");
     assert_eq!(out.predictions[1].label, "ham");
 }
@@ -1712,10 +1834,16 @@ fn trend_detection_stable_signal_produces_stable_segments() {
         window: 5,
         sensitivity: 1.0,
     };
-    let (out, _) = MovingAverageTrendSolver.solve(&input, &spec("td-flat")).unwrap();
+    let (out, _) = MovingAverageTrendSolver
+        .solve(&input, &spec("td-flat"))
+        .unwrap();
     assert!(!out.segments.is_empty());
     use prism::packs::trend_detection::TrendDirection;
-    assert!(out.segments.iter().all(|s| s.direction == TrendDirection::Stable));
+    assert!(
+        out.segments
+            .iter()
+            .all(|s| s.direction == TrendDirection::Stable)
+    );
 }
 
 #[test]
@@ -1725,7 +1853,9 @@ fn descriptive_stats_with_percentiles_returns_them() {
         values: (1..=100).map(|i| i as f64).collect(),
         percentiles: vec![25.0, 50.0, 75.0, 95.0],
     };
-    let (out, _) = DescriptiveStatsSolver.solve(&input, &spec("ds-perc")).unwrap();
+    let (out, _) = DescriptiveStatsSolver
+        .solve(&input, &spec("ds-perc"))
+        .unwrap();
     assert_eq!(out.percentiles.len(), 4);
 }
 
@@ -1738,12 +1868,18 @@ fn naive_bayes_picks_closer_class() {
             ClassDef {
                 name: "small".into(),
                 prior: 0.5,
-                feature_params: vec![GaussianParams { mean: 0.0, std_dev: 1.0 }],
+                feature_params: vec![GaussianParams {
+                    mean: 0.0,
+                    std_dev: 1.0,
+                }],
             },
             ClassDef {
                 name: "large".into(),
                 prior: 0.5,
-                feature_params: vec![GaussianParams { mean: 100.0, std_dev: 1.0 }],
+                feature_params: vec![GaussianParams {
+                    mean: 100.0,
+                    std_dev: 1.0,
+                }],
             },
         ],
         features: vec![99.0],

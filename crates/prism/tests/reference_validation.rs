@@ -6,9 +6,9 @@
 use converge_pack::gate::{ObjectiveSpec, ProblemSpec};
 use prism::fuzzy::{
     ActivatedRule, DefuzzMethod, Domain, FuzzyInferenceEngine, FuzzyInferenceInput,
-    FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipFunction, SugenoInferenceEngine,
-    SugenoInferenceInput, TsukamotoInferenceEngine, TsukamotoInferenceInput, defuzzify_mamdani,
-    weighted_average,
+    FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipDegree, MembershipFunction,
+    SugenoInferenceEngine, SugenoInferenceInput, TsukamotoInferenceEngine, TsukamotoInferenceInput,
+    defuzzify_mamdani, weighted_average,
 };
 use prism::packs::anomaly_detection::{AnomalyDetectionInput, ZScoreSolver};
 use prism::packs::classification::{ClassificationInput, LogisticClassifier};
@@ -227,11 +227,11 @@ fn fuzzy_inference_hand_computed() {
 
     let (output, _) = FuzzyInferenceEngine.solve(&input, &spec()).unwrap();
 
-    assert!((output.input_memberships["authenticity"]["high"] - 0.8).abs() < 1e-9);
-    assert!((output.input_memberships["novelty"]["low"] - 0.875).abs() < 1e-9);
-    assert!((output.memberships["satisfaction.high"] - 0.8).abs() < 1e-9);
+    assert!((output.input_memberships["authenticity"]["high"].value() - 0.8).abs() < 1e-9);
+    assert!((output.input_memberships["novelty"]["low"].value() - 0.875).abs() < 1e-9);
+    assert!((output.memberships["satisfaction.high"].value() - 0.8).abs() < 1e-9);
     assert_eq!(output.activated_rules[0].id, "authentic-simple-fit");
-    assert!((output.confidence - 0.8).abs() < 1e-9);
+    assert!((output.confidence.value() - 0.8).abs() < 1e-9);
 }
 
 #[test]
@@ -246,11 +246,11 @@ fn fuzzy_membership_functions_are_hand_computable() {
         end: 80.0,
     };
 
-    assert!((warm.evaluate(50.0) - 0.5).abs() < 1e-9);
-    assert!((warm.evaluate(60.0) - 1.0).abs() < 1e-9);
-    assert!((warm.evaluate(70.0) - 0.5).abs() < 1e-9);
-    assert!((hot.evaluate(70.0) - 0.5).abs() < 1e-9);
-    assert!((hot.evaluate(85.0) - 1.0).abs() < 1e-9);
+    assert!((warm.evaluate(50.0).value() - 0.5).abs() < 1e-9);
+    assert!((warm.evaluate(60.0).value() - 1.0).abs() < 1e-9);
+    assert!((warm.evaluate(70.0).value() - 0.5).abs() < 1e-9);
+    assert!((hot.evaluate(70.0).value() - 0.5).abs() < 1e-9);
+    assert!((hot.evaluate(85.0).value() - 1.0).abs() < 1e-9);
 }
 
 #[test]
@@ -261,11 +261,11 @@ fn fuzzy_gaussian_membership_is_hand_computable() {
         sigma: 1.0,
     };
     // μ(0) = exp(0) = 1.0
-    assert!((g.evaluate(0.0) - 1.0).abs() < 1e-9);
+    assert!((g.evaluate(0.0).value() - 1.0).abs() < 1e-9);
     // μ(±1) = exp(-0.5) ≈ 0.60653...
     let half_sigma = (-0.5_f64).exp();
-    assert!((g.evaluate(1.0) - half_sigma).abs() < 1e-9);
-    assert!((g.evaluate(-1.0) - half_sigma).abs() < 1e-9);
+    assert!((g.evaluate(1.0).value() - half_sigma).abs() < 1e-9);
+    assert!((g.evaluate(-1.0).value() - half_sigma).abs() < 1e-9);
 
     // shifted + wider gaussian
     let g2 = MembershipFunction::Gaussian {
@@ -273,9 +273,9 @@ fn fuzzy_gaussian_membership_is_hand_computable() {
         sigma: 2.0,
     };
     // μ(5) = 1.0; μ(7) = exp(-((2)^2)/(2*4)) = exp(-0.5)
-    assert!((g2.evaluate(5.0) - 1.0).abs() < 1e-9);
-    assert!((g2.evaluate(7.0) - half_sigma).abs() < 1e-9);
-    assert!((g2.evaluate(3.0) - half_sigma).abs() < 1e-9);
+    assert!((g2.evaluate(5.0).value() - 1.0).abs() < 1e-9);
+    assert!((g2.evaluate(7.0).value() - half_sigma).abs() < 1e-9);
+    assert!((g2.evaluate(3.0).value() - half_sigma).abs() < 1e-9);
 }
 
 // ── Defuzzification ──────────────────────────────────────────────────────────
@@ -307,18 +307,18 @@ fn symmetric_triangle_output() -> (FuzzyInferenceOutput, Vec<LinguisticVariable>
         }],
     }];
     let mut memberships = std::collections::BTreeMap::new();
-    memberships.insert("y.mid".to_string(), 1.0);
+    memberships.insert("y.mid".to_string(), MembershipDegree::one());
     let output = FuzzyInferenceOutput {
         input_memberships: std::collections::BTreeMap::new(),
         memberships,
         activated_rules: vec![ActivatedRule {
             id: "rule-1".into(),
-            antecedent_strength: 1.0,
-            weight: 1.0,
-            strength: 1.0,
+            antecedent_strength: MembershipDegree::one(),
+            weight: MembershipDegree::one(),
+            strength: MembershipDegree::one(),
             consequent: "y.mid".into(),
         }],
-        confidence: 1.0,
+        confidence: MembershipDegree::one(),
         total_rules: 1,
     };
     (output, variables)
@@ -381,7 +381,7 @@ fn defuzzify_mamdani_no_rules_fired_returns_none() {
         input_memberships: std::collections::BTreeMap::new(),
         memberships: std::collections::BTreeMap::new(),
         activated_rules: vec![],
-        confidence: 0.0,
+        confidence: MembershipDegree::zero(),
         total_rules: 0,
     };
     let r = defuzzify_mamdani(
