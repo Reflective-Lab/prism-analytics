@@ -20,7 +20,6 @@ anyhow.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-proptest.workspace = true
 rand.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -35,6 +34,7 @@ converge-optimization.workspace = true
 converge-kernel.workspace = true
 tempfile.workspace = true
 trybuild.workspace = true
+proptest.workspace = true
 
 [features]
 default = []
