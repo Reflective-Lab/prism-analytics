@@ -7,6 +7,8 @@ All notable changes to `prism` are recorded here.
 
 ## [Unreleased]
 
+- Introduced `MembershipDegree` newtype (wraps `f64`, clamps to `[0,1]`) across the fuzzy module; replaces bare `f64` in `FuzzyInferenceOutput.memberships`, `ActivatedRule` fields, and all internal arithmetic.
+
 - Adopted the [Extension Release Checklist](https://github.com/Reflective-Lab/converge/blob/main/kb/Standards/Extension%20Release%20Checklist.md):
   - Wired `just security-audit`, `just coverage`, `just performance-profile`, `just soak`.
   - Added `.github/workflows/{ci,coverage,security,stability}.yml`.
