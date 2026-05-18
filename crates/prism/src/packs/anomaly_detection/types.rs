@@ -1,3 +1,4 @@
+use crate::primitives::ZScoreThreshold;
 use converge_pack::gate::GateResult as Result;
 use serde::{Deserialize, Serialize};
 
@@ -5,12 +6,12 @@ use serde::{Deserialize, Serialize};
 pub struct AnomalyDetectionInput {
     pub values: Vec<f64>,
     #[serde(default = "default_threshold")]
-    pub threshold: f64,
+    pub threshold: ZScoreThreshold,
     pub labels: Option<Vec<String>>,
 }
 
-fn default_threshold() -> f64 {
-    2.0
+fn default_threshold() -> ZScoreThreshold {
+    ZScoreThreshold::new(2.0).expect("2.0 is a valid ZScoreThreshold")
 }
 
 impl AnomalyDetectionInput {
@@ -20,11 +21,7 @@ impl AnomalyDetectionInput {
                 "At least one value required",
             ));
         }
-        if self.threshold <= 0.0 {
-            return Err(converge_pack::GateError::invalid_input(
-                "Threshold must be positive",
-            ));
-        }
+        // threshold > 0 guaranteed by ZScoreThreshold construction.
         if let Some(labels) = &self.labels
             && labels.len() != self.values.len()
         {

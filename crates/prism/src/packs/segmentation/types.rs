@@ -1,10 +1,11 @@
+use crate::primitives::NonZeroUsize;
 use converge_pack::gate::GateResult as Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SegmentationInput {
     pub records: Vec<Vec<f64>>,
-    pub k: usize,
+    pub k: NonZeroUsize,
     #[serde(default = "default_max_iterations")]
     pub max_iterations: usize,
     pub seed: Option<u64>,
@@ -21,10 +22,8 @@ impl SegmentationInput {
                 "At least one record required",
             ));
         }
-        if self.k == 0 {
-            return Err(converge_pack::GateError::invalid_input("k must be >= 1"));
-        }
-        if self.k > self.records.len() {
+        // k >= 1 guaranteed by NonZeroUsize construction.
+        if self.k.get() > self.records.len() {
             return Err(converge_pack::GateError::invalid_input(
                 "k cannot exceed number of records",
             ));

@@ -24,6 +24,7 @@ use prism::packs::similarity::{
 use prism::packs::trend_detection::{
     MovingAverageTrendSolver, TrendDetectionInput, TrendDirection,
 };
+use prism::{NonZeroUsize, UnitFraction, ZScoreThreshold};
 
 fn spec() -> ProblemSpec {
     ProblemSpec::builder("ref-test", "test")
@@ -46,7 +47,7 @@ fn zscore_hand_computed() {
     // With threshold 2.0: only 100 (|z|=3.0) is an anomaly.
     let input = AnomalyDetectionInput {
         values: vec![10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 100.0],
-        threshold: 2.0,
+        threshold: ZScoreThreshold::new(2.0).unwrap(),
         labels: None,
     };
     let (output, _) = ZScoreSolver.solve(&input, &spec()).unwrap();
@@ -149,7 +150,7 @@ fn logistic_classification_sigmoid() {
         records: vec![vec![1.0, 0.0], vec![0.0, 0.0]],
         weights: vec![3.0, 0.0],
         bias: -1.5,
-        threshold: 0.5,
+        threshold: UnitFraction::new(0.5).unwrap(),
         labels: None,
     };
     let (output, _) = LogisticClassifier.solve(&input, &spec()).unwrap();
@@ -782,7 +783,7 @@ fn exponential_smoothing_hand_traced() {
     let input = ForecastingInput {
         values: vec![100.0, 110.0, 120.0],
         horizon: 1,
-        alpha: 0.5,
+        alpha: UnitFraction::new(0.5).unwrap(),
     };
     let (output, _) = ExponentialSmoothingSolver.solve(&input, &spec()).unwrap();
 
@@ -811,7 +812,7 @@ fn kmeans_two_separated_clusters() {
             vec![11.0, 10.0],
             vec![10.0, 11.0],
         ],
-        k: 2,
+        k: NonZeroUsize::new(2).unwrap(),
         max_iterations: 100,
         seed: Some(42),
     };
@@ -906,7 +907,7 @@ fn zscore_20_values_multiple_anomalies() {
 
     let input = AnomalyDetectionInput {
         values,
-        threshold: 3.0,
+        threshold: ZScoreThreshold::new(3.0).unwrap(),
         labels: None,
     };
     let (output, _) = ZScoreSolver.solve(&input, &spec()).unwrap();
@@ -998,7 +999,7 @@ fn logistic_classification_boundary() {
         records: vec![vec![0.5], vec![1.0], vec![0.0], vec![0.3], vec![0.7]],
         weights: vec![10.0],
         bias: -5.0,
-        threshold: 0.5,
+        threshold: UnitFraction::new(0.5).unwrap(),
         labels: None,
     };
     let (output, _) = LogisticClassifier.solve(&input, &spec()).unwrap();
@@ -1108,7 +1109,7 @@ fn exponential_smoothing_8_values() {
     let input = ForecastingInput {
         values: vec![100.0, 120.0, 90.0, 130.0, 110.0, 95.0, 105.0, 115.0],
         horizon: 1,
-        alpha: 0.3,
+        alpha: UnitFraction::new(0.3).unwrap(),
     };
     let (output, _) = ExponentialSmoothingSolver.solve(&input, &spec()).unwrap();
 
@@ -1145,7 +1146,7 @@ fn kmeans_4_clusters_3d() {
             vec![1.0, 0.0, 100.0],
             vec![0.0, 1.0, 100.0],
         ],
-        k: 4,
+        k: NonZeroUsize::new(4).unwrap(),
         max_iterations: 100,
         seed: None,
     };

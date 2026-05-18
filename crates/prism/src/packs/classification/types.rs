@@ -1,3 +1,4 @@
+use crate::primitives::UnitFraction;
 use converge_pack::gate::GateResult as Result;
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +7,7 @@ pub struct ClassificationInput {
     pub records: Vec<Vec<f64>>,
     pub weights: Vec<f64>,
     pub bias: f64,
-    pub threshold: f64,
+    pub threshold: UnitFraction,
     pub labels: Option<(String, String)>,
 }
 
@@ -33,11 +34,7 @@ impl ClassificationInput {
                 )));
             }
         }
-        if !(0.0..=1.0).contains(&self.threshold) {
-            return Err(converge_pack::GateError::invalid_input(
-                "Threshold must be in [0.0, 1.0]",
-            ));
-        }
+        // threshold constraint guaranteed by UnitFraction construction.
         Ok(())
     }
 }

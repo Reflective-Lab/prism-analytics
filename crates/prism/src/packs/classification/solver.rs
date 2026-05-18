@@ -31,7 +31,7 @@ impl LogisticClassifier {
                     + input.bias;
 
                 let probability = sigmoid(logit);
-                let label = if probability >= input.threshold {
+                let label = if probability >= input.threshold.value() {
                     positive_count += 1;
                     pos_label.clone()
                 } else {

@@ -38,7 +38,7 @@ impl PairwiseSimilaritySolver {
         });
 
         if let Some(top_k) = input.top_k {
-            pairs.truncate(top_k);
+            pairs.truncate(top_k.get());
         }
 
         let output = SimilarityOutput { pairs, total_pairs };

@@ -10,7 +10,7 @@ impl ExponentialSmoothingSolver {
         input: &ForecastingInput,
         spec: &ProblemSpec,
     ) -> Result<(ForecastingOutput, SolverReport)> {
-        let alpha = input.alpha;
+        let alpha = input.alpha.value();
         let values = &input.values;
         let n = values.len();
 

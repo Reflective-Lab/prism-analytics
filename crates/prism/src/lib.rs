@@ -31,8 +31,11 @@ pub mod engine;
 pub mod fuzzy;
 pub mod model;
 pub mod packs;
+pub mod primitives;
 pub mod provenance;
 pub mod suggestor;
+
+pub use primitives::{NonZeroUsize, UnitFraction, ZScoreThreshold};
 
 pub use engine::FeatureAgent;
 pub use model::InferenceAgent;

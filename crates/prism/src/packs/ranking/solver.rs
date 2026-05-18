@@ -71,7 +71,7 @@ impl WeightedScoringSolver {
             .collect();
 
         if let Some(top_k) = input.top_k {
-            ranked.truncate(top_k);
+            ranked.truncate(top_k.get());
         }
 
         let max_score = ranked.first().map_or(0.0, |r| r.composite_score);

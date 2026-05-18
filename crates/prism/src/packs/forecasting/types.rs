@@ -1,3 +1,4 @@
+use crate::primitives::UnitFraction;
 use converge_pack::gate::GateResult as Result;
 use serde::{Deserialize, Serialize};
 
@@ -6,11 +7,11 @@ pub struct ForecastingInput {
     pub values: Vec<f64>,
     pub horizon: usize,
     #[serde(default = "default_alpha")]
-    pub alpha: f64,
+    pub alpha: UnitFraction,
 }
 
-fn default_alpha() -> f64 {
-    0.3
+fn default_alpha() -> UnitFraction {
+    UnitFraction::new(0.3).expect("0.3 is a valid UnitFraction")
 }
 
 impl ForecastingInput {
@@ -25,11 +26,7 @@ impl ForecastingInput {
                 "Horizon must be >= 1",
             ));
         }
-        if !(0.0..=1.0).contains(&self.alpha) {
-            return Err(converge_pack::GateError::invalid_input(
-                "Alpha (smoothing factor) must be in [0.0, 1.0]",
-            ));
-        }
+        // alpha constraint guaranteed by UnitFraction construction.
         Ok(())
     }
 }

@@ -12,7 +12,7 @@ impl KMeansSolver {
     ) -> Result<(SegmentationOutput, SolverReport)> {
         let n = input.records.len();
         let dim = input.records[0].len();
-        let k = input.k;
+        let k = input.k.get();
 
         let mut centroids: Vec<Vec<f64>> = if let Some(seed) = input.seed {
             // Deterministic pseudo-random selection using seed

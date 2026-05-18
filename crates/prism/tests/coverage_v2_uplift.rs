@@ -11,6 +11,7 @@ use converge_kernel::{Budget, ContextKey, ContextState, Engine};
 use converge_optimization::packs::{InvariantResult, Pack};
 use converge_pack::gate::{KernelTraceLink, ObjectiveSpec, ProblemSpec, ProposedPlan};
 use converge_pack::{PackInputPayload, ProposedFact};
+use prism::{NonZeroUsize, UnitFraction, ZScoreThreshold};
 use proptest::prelude::*;
 
 use prism::fuzzy::{
@@ -1410,7 +1411,7 @@ proptest! {
         let records: Vec<Vec<f64>> = (0..n).map(|i| vec![(i as f64).sin(), (i as f64).cos()]).collect();
         let input = SegmentationInput {
             records,
-            k,
+            k: NonZeroUsize::new(k).unwrap(),
             max_iterations: 50,
             seed: Some(123),
         };
@@ -1542,7 +1543,7 @@ fn ranking_top_k_truncates_correctly() {
             .collect(),
         weights: vec![1.0],
         higher_is_better: vec![true],
-        top_k: Some(3),
+        top_k: Some(NonZeroUsize::new(3).unwrap()),
     };
     let (out, _) = WeightedScoringSolver
         .solve(&input, &spec("rank-topk"))
@@ -1657,7 +1658,7 @@ fn similarity_top_k_truncates() {
     let input = SimilarityInput {
         items,
         metric: DistanceMetric::Euclidean,
-        top_k: Some(2),
+        top_k: Some(NonZeroUsize::new(2).unwrap()),
     };
     let (out, _) = PairwiseSimilaritySolver
         .solve(&input, &spec("sim-topk"))
@@ -1725,7 +1726,7 @@ fn segmentation_uses_seed_for_init() {
     // deterministic, replay envelopes can't reproduce segmentation results.
     let input = SegmentationInput {
         records: vec![vec![1.0], vec![5.0], vec![10.0], vec![15.0]],
-        k: 2,
+        k: NonZeroUsize::new(2).unwrap(),
         max_iterations: 20,
         seed: Some(7),
     };
@@ -1745,7 +1746,7 @@ fn segmentation_unseeded_uses_evenly_spaced_init() {
     // flaky and operators see nondeterministic results.
     let input = SegmentationInput {
         records: vec![vec![1.0], vec![2.0], vec![10.0], vec![11.0]],
-        k: 2,
+        k: NonZeroUsize::new(2).unwrap(),
         max_iterations: 20,
         seed: None,
     };
@@ -1767,7 +1768,7 @@ fn zscore_with_labels_attaches_them_to_anomalies() {
     // [10×9, 100]: mean=19, stddev=27, z(100)=3.0 → flagged at threshold 2.0
     let input = AnomalyDetectionInput {
         values: vec![10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 100.0],
-        threshold: 2.0,
+        threshold: ZScoreThreshold::new(2.0).unwrap(),
         labels: Some(
             ["a", "b", "c", "d", "e", "f", "g", "h", "i", "OUTLIER"]
                 .into_iter()
@@ -1786,7 +1787,7 @@ fn forecasting_residual_std_is_non_negative() {
     let input = ForecastingInput {
         values: vec![10.0, 12.0, 14.0, 16.0, 18.0],
         horizon: 3,
-        alpha: 0.5,
+        alpha: UnitFraction::new(0.5).unwrap(),
     };
     let (out, _) = ExponentialSmoothingSolver
         .solve(&input, &spec("fc-resid"))
@@ -1803,7 +1804,7 @@ fn logistic_classifier_with_custom_labels() {
         records: vec![vec![10.0], vec![-10.0]],
         weights: vec![1.0],
         bias: 0.0,
-        threshold: 0.5,
+        threshold: UnitFraction::new(0.5).unwrap(),
         labels: Some(("spam".into(), "ham".into())),
     };
     let (out, _) = LogisticClassifier

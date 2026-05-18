@@ -22,7 +22,7 @@ impl ZScoreSolver {
                 .enumerate()
                 .filter_map(|(i, &v)| {
                     let z = (v - mean).abs() / std_dev;
-                    if z > input.threshold {
+                    if z > input.threshold.value() {
                         Some(AnomalyRecord {
                             index: i,
                             value: v,

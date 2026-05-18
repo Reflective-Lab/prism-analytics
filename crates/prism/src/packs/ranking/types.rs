@@ -1,3 +1,4 @@
+use crate::primitives::NonZeroUsize;
 use converge_pack::gate::GateResult as Result;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,7 @@ pub struct RankingInput {
     pub items: Vec<RankItem>,
     pub weights: Vec<f64>,
     pub higher_is_better: Vec<bool>,
-    pub top_k: Option<usize>,
+    pub top_k: Option<NonZeroUsize>,
 }
 
 impl RankingInput {
@@ -52,13 +53,7 @@ impl RankingInput {
                 )));
             }
         }
-        if let Some(top_k) = self.top_k
-            && top_k == 0
-        {
-            return Err(converge_pack::GateError::invalid_input(
-                "top_k must be >= 1",
-            ));
-        }
+        // top_k >= 1 guaranteed by NonZeroUsize construction.
         Ok(())
     }
 }
