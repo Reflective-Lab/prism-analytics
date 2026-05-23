@@ -4,128 +4,48 @@ use converge_pack::gate::GateResult as Result;
 use converge_pack::gate::{ProblemSpec, ReplayEnvelope, SolverReport};
 use serde::{Deserialize, Serialize};
 
-use super::types::{
+use crate::types::{
     FuzzyExpression, LinguisticVariable, evaluate_expression, evaluate_input_memberships,
     validate_expression, validate_variables,
 };
-use super::weighted_average;
+use crate::weighted_average;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum SugenoFunction {
-    Constant {
-        value: f64,
-    },
-    Linear {
-        intercept: f64,
-        coefficients: BTreeMap<String, f64>,
-    },
+pub struct TsukamotoConsequent {
+    pub variable: String,
+    pub set: String,
 }
 
-impl SugenoFunction {
-    pub fn evaluate(&self, inputs: &BTreeMap<String, f64>) -> Result<f64> {
-        match self {
-            Self::Constant { value } => {
-                if !value.is_finite() {
-                    return Err(converge_pack::GateError::invalid_input(
-                        "sugeno constant must be finite",
-                    ));
-                }
-                Ok(*value)
-            }
-            Self::Linear {
-                intercept,
-                coefficients,
-            } => {
-                if !intercept.is_finite() {
-                    return Err(converge_pack::GateError::invalid_input(
-                        "sugeno linear intercept must be finite",
-                    ));
-                }
-                let mut value = *intercept;
-                for (name, coeff) in coefficients {
-                    if !coeff.is_finite() {
-                        return Err(converge_pack::GateError::invalid_input(format!(
-                            "sugeno coefficient '{name}' must be finite"
-                        )));
-                    }
-                    let Some(input) = inputs.get(name) else {
-                        return Err(converge_pack::GateError::invalid_input(format!(
-                            "sugeno linear consequent references unknown input '{name}'"
-                        )));
-                    };
-                    value += coeff * input;
-                }
-                Ok(value)
-            }
-        }
-    }
-
-    pub fn validate(&self, inputs: &BTreeMap<String, f64>) -> Result<()> {
-        match self {
-            Self::Constant { value } => {
-                if !value.is_finite() {
-                    return Err(converge_pack::GateError::invalid_input(
-                        "sugeno constant must be finite",
-                    ));
-                }
-            }
-            Self::Linear {
-                intercept,
-                coefficients,
-            } => {
-                if !intercept.is_finite() {
-                    return Err(converge_pack::GateError::invalid_input(
-                        "sugeno linear intercept must be finite",
-                    ));
-                }
-                for (name, coeff) in coefficients {
-                    if name.trim().is_empty() {
-                        return Err(converge_pack::GateError::invalid_input(
-                            "sugeno coefficient names must be non-empty",
-                        ));
-                    }
-                    if !coeff.is_finite() {
-                        return Err(converge_pack::GateError::invalid_input(format!(
-                            "sugeno coefficient '{name}' must be finite"
-                        )));
-                    }
-                    if !inputs.contains_key(name) {
-                        return Err(converge_pack::GateError::invalid_input(format!(
-                            "sugeno linear consequent references unknown input '{name}'"
-                        )));
-                    }
-                }
-            }
-        }
-        Ok(())
+impl TsukamotoConsequent {
+    pub fn key(&self) -> String {
+        format!("{}.{}", self.variable, self.set)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SugenoRule {
+pub struct TsukamotoRule {
     pub id: Option<String>,
     #[serde(rename = "if")]
     pub when: FuzzyExpression,
     #[serde(rename = "then")]
-    pub then: SugenoFunction,
+    pub then: TsukamotoConsequent,
     pub weight: Option<f64>,
 }
 
-impl SugenoRule {
+impl TsukamotoRule {
     pub fn weight(&self) -> f64 {
         self.weight.unwrap_or(1.0)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SugenoInferenceInput {
+pub struct TsukamotoInferenceInput {
     pub inputs: BTreeMap<String, f64>,
     pub variables: Vec<LinguisticVariable>,
-    pub rules: Vec<SugenoRule>,
+    pub rules: Vec<TsukamotoRule>,
 }
 
-impl SugenoInferenceInput {
+impl TsukamotoInferenceInput {
     pub fn validate(&self) -> Result<()> {
         if self.inputs.is_empty() {
             return Err(converge_pack::GateError::invalid_input(
@@ -139,7 +59,7 @@ impl SugenoInferenceInput {
         }
         if self.rules.is_empty() {
             return Err(converge_pack::GateError::invalid_input(
-                "at least one sugeno rule is required",
+                "at least one tsukamoto rule is required",
             ));
         }
 
@@ -176,7 +96,35 @@ impl SugenoInferenceInput {
                 )));
             }
             validate_expression(&rule.when, &variable_sets, &self.inputs)?;
-            rule.then.validate(&self.inputs)?;
+
+            let consequent_var = self
+                .variables
+                .iter()
+                .find(|v| v.name == rule.then.variable)
+                .ok_or_else(|| {
+                    converge_pack::GateError::invalid_input(format!(
+                        "rule {idx} consequent references unknown variable '{}'",
+                        rule.then.variable
+                    ))
+                })?;
+            let consequent_set = consequent_var
+                .sets
+                .iter()
+                .find(|s| s.name == rule.then.set)
+                .ok_or_else(|| {
+                    converge_pack::GateError::invalid_input(format!(
+                        "rule {idx} consequent references unknown set '{}' on '{}'",
+                        rule.then.set, rule.then.variable
+                    ))
+                })?;
+            if !consequent_set.function.is_monotonic() {
+                return Err(converge_pack::GateError::invalid_input(format!(
+                    "rule {idx} consequent '{}.{}' uses a non-monotonic membership \
+                     function; tsukamoto requires monotonic consequents \
+                     (left/right shoulder)",
+                    rule.then.variable, rule.then.set
+                )));
+            }
         }
 
         Ok(())
@@ -184,52 +132,53 @@ impl SugenoInferenceInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SugenoActivatedRule {
+pub struct TsukamotoActivatedRule {
     pub id: String,
     pub antecedent_strength: f64,
     pub weight: f64,
     pub firing_strength: f64,
+    pub consequent: String,
     pub consequent_value: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SugenoInferenceOutput {
+pub struct TsukamotoInferenceOutput {
     pub input_memberships: BTreeMap<String, BTreeMap<String, f64>>,
-    pub activated_rules: Vec<SugenoActivatedRule>,
+    pub activated_rules: Vec<TsukamotoActivatedRule>,
     pub output: Option<f64>,
     pub confidence: f64,
     pub total_rules: usize,
 }
 
-impl SugenoInferenceOutput {
+impl TsukamotoInferenceOutput {
     pub fn summary(&self) -> String {
         match self.output {
             Some(value) => format!(
-                "Evaluated {} sugeno rules, {} fired, output: {:.6}",
+                "Evaluated {} tsukamoto rules, {} fired, output: {:.6}",
                 self.total_rules,
                 self.activated_rules.len(),
                 value
             ),
             None => format!(
-                "Evaluated {} sugeno rules, no rules fired",
+                "Evaluated {} tsukamoto rules, no rules fired",
                 self.total_rules
             ),
         }
     }
 }
 
-pub struct SugenoInferenceEngine;
+pub struct TsukamotoInferenceEngine;
 
-impl SugenoInferenceEngine {
+impl TsukamotoInferenceEngine {
     pub fn solve(
         &self,
-        input: &SugenoInferenceInput,
+        input: &TsukamotoInferenceInput,
         spec: &ProblemSpec,
-    ) -> Result<(SugenoInferenceOutput, SolverReport)> {
+    ) -> Result<(TsukamotoInferenceOutput, SolverReport)> {
         input.validate()?;
 
         let input_memberships_typed = evaluate_input_memberships(&input.inputs, &input.variables);
-        // Convert to f64 map for SugenoInferenceOutput (Sugeno uses raw f64 for its own output).
+        // Convert to f64 map for TsukamotoInferenceOutput (Tsukamoto uses raw f64 for its own output).
         let input_memberships: BTreeMap<String, BTreeMap<String, f64>> = input_memberships_typed
             .iter()
             .map(|(k, sets)| {
@@ -253,14 +202,26 @@ impl SugenoInferenceEngine {
                 continue;
             }
 
-            let consequent_value = rule.then.evaluate(&input.inputs)?;
+            // Find the consequent set's MF and invert it at the firing strength.
+            let consequent_var = input
+                .variables
+                .iter()
+                .find(|v| v.name == rule.then.variable)
+                .expect("validate ensures the variable exists");
+            let consequent_set = consequent_var
+                .sets
+                .iter()
+                .find(|s| s.name == rule.then.set)
+                .expect("validate ensures the set exists");
+            let consequent_value = consequent_set.function.inverse(firing_strength)?;
+
             if !consequent_value.is_finite() {
                 return Err(converge_pack::GateError::invalid_input(format!(
                     "rule {idx} produced a non-finite consequent value"
                 )));
             }
 
-            activated_rules.push(SugenoActivatedRule {
+            activated_rules.push(TsukamotoActivatedRule {
                 id: rule
                     .id
                     .clone()
@@ -268,6 +229,7 @@ impl SugenoInferenceEngine {
                 antecedent_strength,
                 weight,
                 firing_strength,
+                consequent: rule.then.key(),
                 consequent_value,
             });
             weighted_pairs.push((firing_strength, consequent_value));
@@ -281,7 +243,7 @@ impl SugenoInferenceEngine {
             0.0
         };
 
-        let result = SugenoInferenceOutput {
+        let result = TsukamotoInferenceOutput {
             input_memberships,
             activated_rules,
             output,
@@ -290,7 +252,7 @@ impl SugenoInferenceEngine {
         };
 
         let replay = ReplayEnvelope::minimal(spec.seed());
-        let report = SolverReport::optimal("sugeno-inference-v1", confidence, replay);
+        let report = SolverReport::optimal("tsukamoto-inference-v1", confidence, replay);
 
         Ok((result, report))
     }

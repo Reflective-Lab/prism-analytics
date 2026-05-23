@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::types::{FuzzyInferenceOutput, LinguisticVariable};
+use crate::types::{FuzzyInferenceOutput, LinguisticVariable};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(tag = "method", rename_all = "snake_case")]
@@ -132,7 +132,7 @@ pub fn weighted_average(rules: &[(f64, f64)]) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::{DefuzzMethod, Domain, defuzzify_mamdani, weighted_average};
-    use crate::fuzzy::{
+    use crate::{
         ActivatedRule, FuzzyInferenceOutput, FuzzySet, LinguisticVariable, MembershipDegree,
         MembershipFunction,
     };

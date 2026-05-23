@@ -30,6 +30,9 @@ converge-pack.workspace = true
 # Converge platform dependencies
 converge-optimization.workspace = true
 
+# Internal: fuzzy inference engine extracted to its own crate.
+converge-fuzzy-inference.workspace = true
+
 [dev-dependencies]
 converge-kernel.workspace = true
 tempfile.workspace = true

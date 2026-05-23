@@ -28,7 +28,9 @@
 
 pub mod batch;
 pub mod engine;
-pub mod fuzzy;
+/// Re-export of the extracted `converge-fuzzy-inference` crate so existing
+/// callers using `prism::fuzzy::...` continue to work unchanged.
+pub use converge_fuzzy_inference as fuzzy;
 pub mod model;
 pub mod packs;
 pub mod primitives;
