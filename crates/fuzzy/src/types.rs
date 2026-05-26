@@ -29,6 +29,35 @@ impl From<MembershipDegree> for f64 {
     }
 }
 
+/// A fuzzy materiality degree in [0.0, 1.0].
+///
+/// Use this when the value describes decision salience or evidentiary
+/// materiality rather than set membership. The constructor clamps the input.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MaterialityDegree(f64);
+
+impl MaterialityDegree {
+    pub fn new(v: f64) -> Self {
+        Self(v.clamp(0.0, 1.0))
+    }
+    pub fn value(self) -> f64 {
+        self.0
+    }
+    pub fn zero() -> Self {
+        Self(0.0)
+    }
+    pub fn one() -> Self {
+        Self(1.0)
+    }
+}
+
+impl From<MaterialityDegree> for f64 {
+    fn from(m: MaterialityDegree) -> f64 {
+        m.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FuzzySet {
     pub name: String,
@@ -539,6 +568,22 @@ pub(super) fn evaluate_expression(
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    #[test]
+    fn materiality_degree_clamps_to_unit_interval() {
+        assert_eq!(MaterialityDegree::new(-0.2), MaterialityDegree::zero());
+        assert_eq!(MaterialityDegree::new(1.2), MaterialityDegree::one());
+        assert_eq!(MaterialityDegree::new(0.65).value(), 0.65);
+    }
+
+    #[test]
+    fn materiality_degree_serializes_as_number() {
+        let json = serde_json::to_string(&MaterialityDegree::new(0.42)).unwrap();
+        assert_eq!(json, "0.42");
+
+        let back: MaterialityDegree = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, MaterialityDegree::new(0.42));
+    }
 
     // ── MembershipFunction::evaluate ─────────────────────────────────────────
 
