@@ -38,6 +38,13 @@ This describes how strongly value `x` belongs to fuzzy set `A`. For example,
 `mu_warm(55 C) = 0.7` says that 55 C belongs to the set `warm` with degree
 0.7.
 
+Prism also exposes `MaterialityDegree` for fuzzy decision salience. It has the
+same `[0, 1]` range and clamp semantics as `MembershipDegree`, but it answers a
+different question: "how much should this evidence matter to a decision?" rather
+than "how strongly does this value belong to a fuzzy set?" Apps should use
+`MaterialityDegree` for load-bearing concern weight, evidence salience, and
+review materiality so membership math and decision materiality remain distinct.
+
 ## Building Blocks
 
 Membership functions map crisp values to membership degrees. Prism supports

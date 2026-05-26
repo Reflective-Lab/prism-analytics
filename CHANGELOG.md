@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+### Added
+
+- `prism::fuzzy::MaterialityDegree` — a typed fuzzy degree for evidentiary
+  or decision salience. It mirrors `MembershipDegree`'s `[0, 1]` clamp
+  behavior while keeping "belongs to a set" distinct from "matters to this
+  decision."
+
 ## [2.0.0] - 2026-05-17
 
 ### Changed
