@@ -9,11 +9,3 @@ help: a similar name exists in the module (notice the capitalization)
 5 - use converge_pack::Fact;
 5 + use converge_pack::fact;
   |
-help: consider importing one of these variants instead
-  |
-5 - use converge_pack::Fact;
-5 + use converge_kernel::CorrectionTarget::Fact;
-  |
-5 - use converge_pack::Fact;
-5 + use converge_kernel::OverrideTarget::Fact;
-  |

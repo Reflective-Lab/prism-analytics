@@ -2,11 +2,10 @@ error[E0432]: unresolved import `converge_pack::Fact`
  --> tests/compile_fail/suggestor_cannot_emit_fact.rs:4:46
   |
 4 | use converge_pack::{AgentEffect, ContextKey, Fact};
-  |                                              ^^^^
-  |                                              |
-  |                                              no `Fact` in the root
-  |                                              help: a similar name exists in the module (notice the capitalization): `fact`
+  |                                              ^^^^ no `Fact` in the root
   |
-  = help: consider importing one of these variants instead:
-          converge_kernel::CorrectionTarget::Fact
-          converge_kernel::OverrideTarget::Fact
+help: a similar name exists in the module (notice the capitalization)
+  |
+4 - use converge_pack::{AgentEffect, ContextKey, Fact};
+4 + use converge_pack::{AgentEffect, ContextKey, fact};
+  |
