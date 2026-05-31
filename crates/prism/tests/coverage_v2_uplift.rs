@@ -225,7 +225,7 @@ mod inference_agent {
         // Suggestor metadata must remain stable — the engine logs by name.
         assert_eq!(agent.name(), "InferenceAgent (Burn)");
         assert!(agent.dependencies().contains(&ContextKey::Proposals));
-        assert_eq!(agent.provenance(), "prism");
+        assert_eq!(agent.provenance().as_str(), "prism");
     }
 
     #[test]

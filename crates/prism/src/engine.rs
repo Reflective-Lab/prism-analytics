@@ -2,7 +2,8 @@
 
 use anyhow::{Result, anyhow};
 use converge_pack::{
-    AgentEffect, Context, ContextKey, FactPayload, ProvenanceSource, Suggestor, TextPayload,
+    AgentEffect, Context, ContextKey, FactPayload, Provenance, ProvenanceSource, Suggestor,
+    TextPayload,
 };
 use polars::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -115,8 +116,8 @@ impl Suggestor for FeatureAgent {
         ctx.has(ContextKey::Seeds) && !ctx.has(ContextKey::Proposals)
     }
 
-    fn provenance(&self) -> &'static str {
-        PRISM_PROVENANCE.as_str()
+    fn provenance(&self) -> Provenance {
+        Provenance::from(PRISM_PROVENANCE.as_str())
     }
 
     async fn execute(&self, _ctx: &dyn Context) -> AgentEffect {

@@ -7,7 +7,9 @@ use burn::{
     prelude::*,
     tensor::{Tensor, backend::Backend},
 };
-use converge_pack::{AgentEffect, Context, ContextKey, ProvenanceSource, Suggestor, TextPayload};
+use converge_pack::{
+    AgentEffect, Context, ContextKey, Provenance, ProvenanceSource, Suggestor, TextPayload,
+};
 
 // Re-defining for now if not public in engine, strictly we should move to lib or common
 // But for this example we assume we can deserialize into this struct.
@@ -81,8 +83,8 @@ impl Suggestor for InferenceAgent {
         ctx.has(ContextKey::Proposals) && !ctx.has(ContextKey::Hypotheses)
     }
 
-    fn provenance(&self) -> &'static str {
-        PRISM_PROVENANCE.as_str()
+    fn provenance(&self) -> Provenance {
+        Provenance::from(PRISM_PROVENANCE.as_str())
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
