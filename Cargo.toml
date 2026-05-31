@@ -20,7 +20,7 @@ converge-fuzzy-inference = { path = "crates/fuzzy", version = "2.0.1" }
 
 # ML / data
 polars = { version = "0.51.0", features = ["csv", "lazy", "log", "ndarray", "parquet", "rows"] }
-burn = { version = "0.20.0", features = ["ndarray", "train"] }
+burn = { version = "0.21.0", features = ["ndarray", "train"] }
 ndarray = "0.17.2"
 calamine = "0.35"
 
