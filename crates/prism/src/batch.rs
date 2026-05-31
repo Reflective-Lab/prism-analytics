@@ -167,7 +167,7 @@ fn load_events_lazy(path: &str) -> Result<LazyFrame> {
             .finish()?
             .lazy())
     } else {
-        let pl_path = PlPath::from_str(path);
+        let pl_path = PlRefPath::new(path);
         Ok(LazyFrame::scan_parquet(pl_path, Default::default())?)
     }
 }

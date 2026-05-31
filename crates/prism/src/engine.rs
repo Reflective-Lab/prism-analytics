@@ -162,9 +162,9 @@ fn compute_features_from_df(
         (left.clone(), right.clone())
     } else {
         let mut numeric = df
-            .get_columns()
+            .columns()
             .iter()
-            .filter(|series| is_numeric_dtype(series.dtype()))
+            .filter(|col| is_numeric_dtype(col.dtype()))
             .cloned()
             .collect::<Vec<_>>();
         if numeric.len() < 2 {
@@ -206,7 +206,7 @@ fn load_dataframe(path: &Path) -> Result<DataFrame> {
 
     match extension.as_str() {
         "parquet" => {
-            let pl_path = PlPath::from_str(path_str);
+            let pl_path = PlRefPath::new(path_str);
             Ok(LazyFrame::scan_parquet(pl_path, Default::default())?.collect()?)
         }
         "csv" => Ok(CsvReadOptions::default()
