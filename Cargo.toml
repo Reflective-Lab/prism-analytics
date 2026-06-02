@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/fuzzy", "crates/prism"]
 
 [workspace.package]
-version = "2.0.1"
+version = "2.0.2"
 edition = "2024"
 rust-version = "1.94.0"
 license = "MIT"
@@ -16,7 +16,7 @@ converge-optimization = "3.9.2"
 converge-kernel = "3.9.2"
 
 # Internal: extracted fuzzy inference engine (no heavy ML deps).
-converge-fuzzy-inference = { path = "crates/fuzzy", version = "2.0.1" }
+converge-fuzzy-inference = { path = "crates/fuzzy", version = "2.0.2" }
 
 # ML / data
 polars = { version = "0.51.0", features = ["csv", "lazy", "log", "ndarray", "parquet", "rows"] }
