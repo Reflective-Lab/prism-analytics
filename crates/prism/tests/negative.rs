@@ -3,7 +3,10 @@
 use converge_kernel::{Budget, ContextKey, ContextState, Engine};
 use converge_pack::Pack;
 use converge_pack::PackSuggestor;
-use converge_pack::{ContextFact, PackInputPayload, PackPlanPayload, ProposedFact};
+use converge_pack::{
+    ContextFact, PackInputPayload, PackPlanPayload, ProposedFact, ProvenanceSource,
+};
+use prism::PRISM_PROVENANCE;
 use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
@@ -38,7 +41,7 @@ fn add_pack_seed(ctx: &mut ContextState, id: &str, pack: &str, input: serde_json
         ContextKey::Seeds,
         id,
         PackInputPayload::new(pack, input),
-        "test",
+        PRISM_PROVENANCE.provenance(),
     ))
     .expect("pack seed proposal should stage");
 }

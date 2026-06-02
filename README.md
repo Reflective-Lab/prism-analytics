@@ -11,12 +11,11 @@
 <img alt="gitleaks badge" src="https://img.shields.io/badge/protected%20by-gitleaks-blue">
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Analytics and ML suggestors for Converge formations.
+Closed-form analytics and inference Suggestors for Converge formations.
 
 `prism` is a Converge extension. It keeps feature extraction, analytic packs,
-training, inference, model registry, monitoring, and deployment-decision
-suggestors outside the Converge foundation while using Converge contracts for
-in-loop behavior.
+inference, and fuzzy logic outside the Converge foundation while using
+Converge contracts for in-loop behavior.
 
 Cargo package: `converge-prism-analytics`. Rust library name remains `prism`.
 
@@ -32,9 +31,6 @@ over promotion.
 - Burn-based inference examples.
 - Reusable fuzzy inference capability through `prism::fuzzy`.
 - Analytic pack solvers and typed inputs/outputs.
-- Training pipeline agents: dataset, validation, feature engineering,
-  hyperparameter search, model training, evaluation, registry, monitoring,
-  deployment decision, and sample inference.
 - Typed proposal provenance through `ProvenanceSource` / `PRISM_PROVENANCE`.
 - Suggestor-boundary tracing through `prism.suggestor.execute` spans.
 - Compile-fail tests that enforce Converge authority boundaries.
@@ -59,7 +55,8 @@ over promotion.
 | Layer | Responsibility |
 |---|---|
 | Converge | Suggestor contract, proposal promotion, and shared context. |
-| Prism | Analytics packs, feature agents, training agents, and ML pipeline behavior. |
+| Prism | Closed-form analytics packs, feature agents, inference, and fuzzy rules. |
+| Crucible | Trained models, training loops, model artifacts, registry, monitoring, and deployment agents. |
 | Products | Domain datasets, model rollout policy, credentials, and deployment topology. |
 
 ## Repository Layout
@@ -71,7 +68,6 @@ crates/prism/
   src/ingest.rs     CSV, TSV, Parquet, and optional Excel ingestion
   src/model.rs      Burn inference example
   src/packs/        Analytics packs and solvers
-  src/training.rs   Training and monitoring suggestors
   tests/            Integration, property, negative, and compile-fail tests
 ```
 
@@ -87,7 +83,6 @@ engine.register_suggestor(agent);
 ## Feature Flags
 
 - Default: none.
-- `storage`: enables optional `converge-storage` support.
 - `excel`: enables Excel ingestion through `calamine`.
 
 ## Development

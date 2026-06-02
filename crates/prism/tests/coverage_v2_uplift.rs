@@ -10,7 +10,7 @@
 use converge_kernel::{Budget, ContextKey, ContextState, Engine};
 use converge_optimization::packs::{InvariantResult, Pack};
 use converge_pack::gate::{KernelTraceLink, ObjectiveSpec, ProblemSpec, ProposedPlan};
-use converge_pack::{PackInputPayload, ProposedFact};
+use converge_pack::{PackInputPayload, ProposedFact, ProvenanceSource};
 use prism::{NonZeroUsize, UnitFraction, ZScoreThreshold};
 use proptest::prelude::*;
 
@@ -194,7 +194,7 @@ mod suggestor_factories {
                 "descriptive-stats",
                 serde_json::json!({"values": [1.0, 2.0, 3.0]}),
             ),
-            "test",
+            prism::PRISM_PROVENANCE.provenance(),
         ))
         .unwrap();
         let result = engine.run(ctx).await.expect("converges");
@@ -285,7 +285,7 @@ mod inference_agent {
             ContextKey::Proposals,
             "features-001",
             fv,
-            "prism",
+            prism::PRISM_PROVENANCE.provenance(),
         ))
         .expect("feature proposal should stage");
         let result = engine.run(ctx).await.expect("engine should converge");

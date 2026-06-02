@@ -1,7 +1,10 @@
 //! Integration tests: each analytics pack as a Suggestor in the convergence loop.
 
 use converge_kernel::{Budget, ContextFact, ContextKey, ContextState, ConvergeResult, Engine};
-use converge_pack::{PackInputPayload, PackPlanPayload, PackSuggestor, ProposedFact};
+use converge_pack::{
+    PackInputPayload, PackPlanPayload, PackSuggestor, ProposedFact, ProvenanceSource,
+};
+use prism::PRISM_PROVENANCE;
 use prism::packs::fuzzy::{SugenoInferencePack, TsukamotoInferencePack};
 use prism::packs::{
     AnomalyDetectionPack, ClassificationPack, DescriptiveStatsPack, ForecastingPack,
@@ -37,7 +40,7 @@ fn add_pack_seed(ctx: &mut ContextState, id: &str, pack: &str, input: serde_json
         ContextKey::Seeds,
         id,
         PackInputPayload::new(pack, input),
-        "test",
+        PRISM_PROVENANCE.provenance(),
     ))
     .expect("pack seed proposal should stage");
 }

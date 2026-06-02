@@ -84,7 +84,7 @@ impl Suggestor for InferenceAgent {
     }
 
     fn provenance(&self) -> Provenance {
-        Provenance::from(PRISM_PROVENANCE.as_str())
+        PRISM_PROVENANCE.provenance()
     }
 
     async fn execute(&self, ctx: &dyn Context) -> AgentEffect {

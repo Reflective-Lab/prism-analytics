@@ -117,7 +117,7 @@ impl Suggestor for FeatureAgent {
     }
 
     fn provenance(&self) -> Provenance {
-        Provenance::from(PRISM_PROVENANCE.as_str())
+        PRISM_PROVENANCE.provenance()
     }
 
     async fn execute(&self, _ctx: &dyn Context) -> AgentEffect {
@@ -162,7 +162,7 @@ fn compute_features_from_df(
         (left.clone(), right.clone())
     } else {
         let mut numeric = df
-            .columns()
+            .get_columns()
             .iter()
             .filter(|col| is_numeric_dtype(col.dtype()))
             .cloned()
@@ -206,7 +206,7 @@ fn load_dataframe(path: &Path) -> Result<DataFrame> {
 
     match extension.as_str() {
         "parquet" => {
-            let pl_path = PlRefPath::new(path_str);
+            let pl_path = PlPath::new(path_str);
             Ok(LazyFrame::scan_parquet(pl_path, Default::default())?.collect()?)
         }
         "csv" => Ok(CsvReadOptions::default()
