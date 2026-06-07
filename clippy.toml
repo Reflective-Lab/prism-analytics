@@ -1,0 +1,19 @@
+# Workspace-level clippy configuration for prism-analytics.
+#
+# RP-HERMETIC-UNIT enforcement (Reflective QUALITY_BACKLOG.md →
+# QF-2026-06-02-05): the methods listed below construct HTTP clients with
+# implicit defaults, making it impossible for a test to substitute a stub
+# without the test author noticing.
+#
+# As of 2026-06-07 prism-analytics has no reqwest callsites in src/ —
+# this config keeps it clean. When the workspace grows code that needs
+# an HTTP client (LLM hooks, telemetry, etc.), use the
+# `with_http_client(...)` DI pattern documented in Reflective's
+# KB/05-engineering/standards/hermetic-unit-tests.md.
+
+disallowed-methods = [
+    { path = "reqwest::Client::new", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+    { path = "reqwest::blocking::Client::new", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+    { path = "reqwest::Client::builder", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+    { path = "reqwest::blocking::Client::builder", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+]
