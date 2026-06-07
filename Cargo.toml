@@ -70,6 +70,16 @@ return_self_not_must_use = "allow"
 ignore_without_reason = "allow"
 # Reference checks compare exact f64 outputs from deterministic algorithms.
 float_cmp = "allow"
+# RP-HERMETIC-UNIT (Reflective QUALITY_BACKLOG.md → QF-2026-06-02-05):
+# denies `reqwest::Client::new` / `reqwest::blocking::Client::new` /
+# `::builder` so unit tests can't accidentally hit the network. The
+# disallowed-methods list lives in `clippy.toml` at the workspace root.
+# Production callsites either use a DI constructor (see Reflective KB
+# standard `hermetic-unit-tests.md`) or annotate the construction with
+# `#[allow(clippy::disallowed_methods)]` + a justification comment.
+# Set to `deny` 2026-06-07 — prism-analytics had zero reqwest callsites
+# in src at that time; this config keeps it clean going forward.
+disallowed_methods = "deny"
 
 [profile.release]
 opt-level = 3
