@@ -478,6 +478,10 @@ mod tests {
     }
 
     #[test]
+    // RP-DETERMINISM exemption (QF-2026-06-08-01): SystemTime::now() is
+    // used only to mint a unique tempdir suffix. The value is never
+    // asserted on; the test result does not depend on the clock.
+    #[allow(clippy::disallowed_methods)]
     fn load_dataframe_reads_csv() {
         let mut path = std::env::temp_dir();
         let nanos = SystemTime::now()
@@ -593,6 +597,13 @@ mod tests {
 
     #[test]
     #[ignore]
+    // RP-DETERMINISM exemption (QF-2026-06-08-01): Instant::now() is
+    // used for benchmark timing instrumentation in an #[ignore]'d
+    // benchmark. The single assert! is a coarse 20x catastrophic-
+    // regression ceiling, not a precision check; minor clock noise
+    // doesn't change the verdict. This benchmark runs manually, not
+    // in default `cargo test`.
+    #[allow(clippy::disallowed_methods)]
     fn polars_vectorized_dot_product_is_fast() {
         let rows = 300_000;
         let left: Vec<f32> = (0..rows).map(|i| (i % 100) as f32).collect();
@@ -633,6 +644,13 @@ mod tests {
 
     #[test]
     #[ignore]
+    // RP-DETERMINISM exemption (QF-2026-06-08-01): Instant::now() is
+    // used for benchmark timing instrumentation in an #[ignore]'d
+    // benchmark. The single assert! is a coarse 20x catastrophic-
+    // regression ceiling, not a precision check; minor clock noise
+    // doesn't change the verdict. This benchmark runs manually, not
+    // in default `cargo test`.
+    #[allow(clippy::disallowed_methods)]
     fn polars_groupby_is_fast() {
         let rows = 200_000;
         let keys: Vec<&str> = (0..rows)

@@ -1,19 +1,49 @@
 # Workspace-level clippy configuration for prism-analytics.
 #
-# RP-HERMETIC-UNIT enforcement (Reflective QUALITY_BACKLOG.md →
-# QF-2026-06-02-05): the methods listed below construct HTTP clients with
-# implicit defaults, making it impossible for a test to substitute a stub
-# without the test author noticing.
+# Two RP-enforcement bundles:
 #
-# As of 2026-06-07 prism-analytics has no reqwest callsites in src/ —
-# this config keeps it clean. When the workspace grows code that needs
-# an HTTP client (LLM hooks, telemetry, etc.), use the
-# `with_http_client(...)` DI pattern documented in Reflective's
-# KB/05-engineering/standards/hermetic-unit-tests.md.
+# 1. RP-HERMETIC-UNIT (Reflective QUALITY_BACKLOG.md → QF-2026-06-02-05):
+#    The reqwest entries below construct HTTP clients with implicit
+#    defaults, making it impossible for a test to substitute a stub
+#    without the test author noticing. Use the `with_http_client(...)`
+#    DI pattern documented in Reflective's
+#    KB/05-engineering/standards/hermetic-unit-tests.md.
+#
+# 2. RP-DETERMINISM (Reflective QUALITY_BACKLOG.md → QF-2026-06-08-01):
+#    Pilot 2026-06-08. Wall clock, RNG, and broad env reads in
+#    production code that's exercised by unit tests without
+#    injection seams cause tests that pass today and fail next month.
+#    See KB/05-engineering/standards/determinism.md for the rationale
+#    and the per-axis enforcement table. Prism-analytics is the pilot
+#    workspace because it had zero RP-HERMETIC-UNIT baseline, making
+#    it the cleanest place to validate the determinism deny list
+#    without immediately hitting `#[allow]` rollout cost.
 
 disallowed-methods = [
+    # RP-HERMETIC-UNIT (network axis).
     { path = "reqwest::Client::new", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
     { path = "reqwest::blocking::Client::new", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
     { path = "reqwest::Client::builder", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
     { path = "reqwest::blocking::Client::builder", allow-invalid = true, reason = "use DI per RP-HERMETIC-UNIT / QF-2026-06-02-05" },
+
+    # RP-DETERMINISM (wall clock axis) — pilot 2026-06-08.
+    # Production code that legitimately reads the wall clock annotates
+    # `#[allow(clippy::disallowed_methods)]` with a justification.
+    # Tests inject a clock via DI (constructor takes a `Clock` trait
+    # object or `fn() -> DateTime<Utc>`).
+    { path = "std::time::SystemTime::now", allow-invalid = true, reason = "inject clock per RP-DETERMINISM / QF-2026-06-08-01" },
+    { path = "std::time::Instant::now", allow-invalid = true, reason = "inject clock per RP-DETERMINISM / QF-2026-06-08-01" },
+    { path = "chrono::Utc::now", allow-invalid = true, reason = "inject clock per RP-DETERMINISM / QF-2026-06-08-01" },
+    { path = "chrono::Local::now", allow-invalid = true, reason = "inject clock per RP-DETERMINISM / QF-2026-06-08-01" },
+
+    # RP-DETERMINISM (RNG axis) — pilot 2026-06-08.
+    # Production code needing OS entropy (key generation, ID minting)
+    # keeps `#[allow]`. Tests use seeded RNG: `StdRng::seed_from_u64(seed)`.
+    { path = "rand::random", allow-invalid = true, reason = "use seeded RNG per RP-DETERMINISM / QF-2026-06-08-01" },
+    { path = "rand::thread_rng", allow-invalid = true, reason = "use seeded RNG per RP-DETERMINISM / QF-2026-06-08-01" },
+
+    # RP-DETERMINISM (broad env axis) — pilot 2026-06-08.
+    # Reading specific env vars by key is fine (`std::env::var("FOO")`);
+    # reading ALL env vars in one sweep is the smell this catches.
+    { path = "std::env::vars", allow-invalid = true, reason = "read specific keys per RP-DETERMINISM / QF-2026-06-08-01" },
 ]
