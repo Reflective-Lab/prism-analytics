@@ -44,6 +44,7 @@ over promotion.
 | `DescriptiveStatsPack` | Mean, median, variance, percentiles |
 | `ForecastingPack` | Exponential smoothing |
 | `FuzzyInferencePack` | Membership functions and explainable fuzzy rules |
+| `NaiveBayesPack` | Gaussian naive Bayes classification |
 | `RankingPack` | Weighted multi-criteria ranking |
 | `RegressionPack` | Linear regression |
 | `SegmentationPack` | K-means clustering |

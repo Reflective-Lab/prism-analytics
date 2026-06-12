@@ -11,6 +11,10 @@ Knowledge base for the `prism` Converge extension.
 
 **Meta:** [[INDEX]] — entity catalog | [[LOG]] — mutation log
 
+## Positioning
+
+- [[Positioning]] — elevator pitch, LLM synergy, full algorithm catalog
+
 ## Architecture
 
 - [[Architecture/Surface]] — public crate surface and contract shape
