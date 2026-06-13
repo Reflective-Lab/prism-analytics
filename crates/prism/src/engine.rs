@@ -120,22 +120,32 @@ impl Suggestor for FeatureAgent {
         PRISM_PROVENANCE.provenance()
     }
 
-    async fn execute(&self, _ctx: &dyn Context) -> AgentEffect {
+    async fn execute(&self, ctx: &dyn Context) -> AgentEffect {
+        let seed_fact = ctx.get(ContextKey::Seeds).first();
+
         // 1. Compute features using Polars
         let features = match self.compute_features() {
             Ok(f) => f,
             Err(e) => {
-                return AgentEffect::with_proposal(PRISM_PROVENANCE.proposed_fact(
+                let diagnostic = PRISM_PROVENANCE.proposed_fact(
                     ContextKey::Diagnostic,
                     "feature-agent-error",
                     TextPayload::new(e.to_string()),
-                ));
+                );
+                return AgentEffect::with_proposal(match seed_fact {
+                    Some(seed) => diagnostic.with_subject_from(seed),
+                    None => diagnostic,
+                });
             }
         };
 
         // 2. Propose the features
         let proposal =
             PRISM_PROVENANCE.proposed_fact(ContextKey::Proposals, "features-001", features);
+        let proposal = match seed_fact {
+            Some(seed) => proposal.with_subject_from(seed),
+            None => proposal,
+        };
 
         // Note: In a real agent, we might emit a Fact directly if trusted, or a ProposedFact.
         // converge_core usually requires TryFrom implementation or specific flow.

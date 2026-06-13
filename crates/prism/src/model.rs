@@ -145,11 +145,13 @@ impl Suggestor for InferenceAgent {
 
         let hypo_content = format!("Prediction: {:.4} (based on {})", prediction, facts[0].id());
 
-        let hypothesis = PRISM_PROVENANCE.proposed_fact(
-            ContextKey::Hypotheses,
-            format!("hypo-{}", facts[0].id()),
-            TextPayload::new(hypo_content),
-        );
+        let hypothesis = PRISM_PROVENANCE
+            .proposed_fact(
+                ContextKey::Hypotheses,
+                format!("hypo-{}", facts[0].id()),
+                TextPayload::new(hypo_content),
+            )
+            .with_subject_from(&facts[0]);
 
         AgentEffect::with_proposal(hypothesis)
     }
