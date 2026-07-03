@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/fuzzy", "crates/prism"]
 
 [workspace.package]
-version = "2.0.2"
+version = "2.0.3"
 edition = "2024"
 rust-version = "1.96.0"
 license = "MIT"
@@ -11,12 +11,12 @@ repository = "https://github.com/Reflective-Lab/prism-analytics"
 
 [workspace.dependencies]
 # Converge platform contracts
-converge-pack = "3.9.2"
-converge-optimization = "3.9.2"
-converge-kernel = "3.9.2"
+converge-pack = "3.9.3"
+converge-optimization = "3.9.3"
+converge-kernel = "3.9.3"
 
 # Internal: extracted fuzzy inference engine (no heavy ML deps).
-converge-fuzzy-inference = { path = "crates/fuzzy", version = "2.0.2" }
+converge-fuzzy-inference = { path = "crates/fuzzy", version = "2.0.3" }
 
 # ML / data
 polars = { version = "0.51.0", features = ["csv", "lazy", "log", "ndarray", "parquet", "rows"] }
